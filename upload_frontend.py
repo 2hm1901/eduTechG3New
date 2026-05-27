@@ -31,7 +31,9 @@ def upload_directory_to_s3(bucket_name, source_dir):
             )
             
 if __name__ == "__main__":
-    bucket = "hofang-studybot-frontend-870853685410-ap-southeast-1"
+    bucket = os.getenv("STUDYBOT_FRONTEND_BUCKET", "").strip()
+    if not bucket:
+        raise SystemExit("Missing env var STUDYBOT_FRONTEND_BUCKET (target S3 bucket name).")
     frontend_dir = "frontend"
     print(f"Starting upload to {bucket}...")
     upload_directory_to_s3(bucket, frontend_dir)
