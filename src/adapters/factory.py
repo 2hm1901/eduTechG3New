@@ -1,6 +1,7 @@
 """Factory: read env config + instantiate concrete adapters."""
 from src.config import config
 from src.adapters import ai, storage, userstore, vector
+from src.adapters.sqlite_store import SQLiteUserStore
 
 
 def make_ai():
@@ -26,7 +27,7 @@ def make_userstore():
     if backend == "postgres":
         return userstore.PostgresUserStore(url=config.userstore_postgres_url)
     if backend == "sqlite":
-        return userstore.SQLiteUserStore(db_path=config.userstore_sqlite_path)
+        return SQLiteUserStore(db_path=config.userstore_sqlite_path)
     if backend == "documentdb":
         return userstore.DocumentDBUserStore(
             url=config.userstore_mongo_url,

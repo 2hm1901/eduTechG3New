@@ -1,0 +1,22 @@
+:root {
+  --bg: #f4f8fe;
+  --bg-elevated: #ffffff;
+  --bg-subtle: #eef4ff;
+  --bg-strong: #ffffff;
+  --ink: #10203a;
+  --muted: #5d6b82;
+  --line: #d9e4f5;
+  --line-strong: #c7d7f0;
+  --accent: #2563eb;
+  --accent-strong: #1d4ed8;
+  --accent-soft: #e7f0ff;
+  --warn: #b45309;
+  --danger: #dc2626;
+  --success: #15803d;
+  --shadow: 0 14px 36px rgba(37, 99, 235, 0.08);
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+  --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  --sans: "Aptos", "Segoe UI Variable Text", "Segoe UI", sans-serif;
+}

@@ -1,0 +1,109 @@
+.bank-sidebar,
+.bank-main {
+  min-height: calc(100vh - 190px);
+}
+
+.bank-sidebar {
+  align-self: start;
+  position: sticky;
+  top: 92px;
+  display: grid;
+  gap: 18px;
+}
+
+.bank-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.toolbar-copy h2,
+.toolbar-copy p {
+  margin: 0;
+}
+
+.toolbar-copy p {
+  margin-top: 8px;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.bank-upload {
+  margin-bottom: 18px;
+}
+
+.doc-table,
+.folder-list {
+  display: grid;
+  gap: 12px;
+}
+
+.doc-row,
+.folder-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #fff;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.doc-row:hover,
+.folder-row:hover {
+  border-color: var(--line-strong);
+  background: #fbfdff;
+}
+
+.doc-row h4 {
+  margin: 0 0 6px;
+}
+
+.doc-row-main,
+.folder-row-main {
+  min-width: 0;
+}
+
+.doc-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.folder-name-link {
+  display: inline-block;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.doc-actions,
+.folder-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-content: start;
+}
+
+@media (max-width: 1160px) {
+  .bank-sidebar {
+    position: static;
+    min-height: auto;
+  }
+
+  .bank-main {
+    min-height: auto;
+  }
+
+  .bank-toolbar {
+    flex-direction: column;
+  }
+}

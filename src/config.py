@@ -29,14 +29,11 @@ class Config:
     userstore_backend: str = _env("USERSTORE_BACKEND", "sqlite")
     userstore_table: str = _env("USERSTORE_TABLE", "")
     userstore_postgres_url: str = _env("USERSTORE_POSTGRES_URL", "")
-    userstore_sqlite_path: str = _env("USERSTORE_SQLITE_PATH", "./_data/users.db")
+    userstore_sqlite_path: str = _env("USERSTORE_SQLITE_PATH", "./_data/studybot.db")
 
     # Vector
     vector_backend: str = _env("VECTOR_BACKEND", "local")
     vector_bedrock_kb_id: str = _env("VECTOR_BEDROCK_KB_ID", "")
-
-    # Identity
-    default_user_id: str = _env("DEFAULT_USER_ID", "test-user-001")
 
     # Logging
     log_level: str = _env("LOG_LEVEL", "INFO")

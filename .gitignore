@@ -1,7 +1,14 @@
 .venv/
 __pycache__/
 *.pyc
+*.pyo
+*.db-journal
 .env
 _data/
 .pytest_cache/
+pytest-cache-files-*/
+_test_tmp/
+latest_logs/
+archived_logs/
+app_state/
 *.egg-info/

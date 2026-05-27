@@ -1,8 +1,73 @@
 # StudyBot — W7 Capstone Starter
 
-**Domain:** EduTech. Upload a lecture (PDF/TXT) → ask questions → get answers grounded in your own notes (RAG).
+**Domain:** EduTech. Upload lecture files into a shared bank, compose folder workspaces, generate 5 study topics, chat in sessions, and run quizzes per topic.
 
 This starter runs **completely locally** with zero AWS credentials. Switch env vars to flip to AWS Bedrock + KB + S3 + your chosen DB when you're ready to deploy.
+
+---
+
+## Phạm vi task hiện có
+
+Repo này đã có một MVP chạy được cho 4 task bên dưới. Kiến trúc hiện tại là local-first, nhưng vẫn giữ adapter Bedrock/KB/S3 để sau này chuyển sang AWS bằng env vars.
+
+### Task 1 - Upload & Summary
+
+Đã có trong code:
+- Đăng ký / đăng nhập người dùng (`/auth/register`, `/auth/login`)
+- Upload PDF/TXT/MD vào bank (`POST /api/bank/documents/upload`)
+- Trích xuất text cục bộ từ file upload
+- Lưu metadata tài liệu vào SQLite
+- Liệt kê tài liệu trong bank (`GET /api/bank/documents`)
+- Tạo folder và thêm file vào folder
+- Generate topic từ nội dung folder (`POST /api/folders/{folder_id}/topics/generate`)
+
+Chưa có hoặc mới làm một phần:
+- Endpoint tóm tắt 1 trang cho tài liệu
+- OCR / hiểu PDF dạng ảnh ở mức slide
+- Bộ 5 chủ đề gắn chặt riêng với từng slide
+
+### Task 2 - Q&A with Citation
+
+Đã có trong code:
+- Chat session theo folder (`POST /api/folders/{folder_id}/sessions`)
+- API chat messages (`GET/POST /api/sessions/{session_id}/messages`)
+- Retrieval trên tài liệu đã upload
+- AI trả lời qua adapter model
+- Trả về citation kèm câu trả lời
+- Prompt có bám topic khi user chọn topic
+
+Chưa có hoặc mới làm một phần:
+- Citation theo mức slide
+- Mapping chắc chắn `1 topic = 1 slide`
+- Chế độ retrieval chỉ theo slide
+
+### Task 3 - Quiz Generation
+
+Đã có trong code:
+- Tạo quiz theo topic (`POST /api/topics/{topic_id}/quiz`)
+- Nộp quiz và lưu kết quả (`POST /api/topics/{topic_id}/quiz/submit`)
+- Lưu quiz attempt trong SQLite
+- Cập nhật progress topic sau khi nộp quiz
+- Có page quiz trên frontend
+
+Chưa có hoặc mới làm một phần:
+- Quiz chất lượng cao cho PDF nhiều ảnh
+- Mức độ khó của quiz
+- Scope quiz theo từng slide
+
+### Task 4 - Learning Dashboard
+
+Đã có trong code:
+- API dashboard theo folder (`GET /api/folders/{folder_id}/dashboard`)
+- Hiển thị số file, số câu hỏi, quiz history và topic progress
+- Có page dashboard trên frontend
+- Lưu quiz history trong SQLite
+- Track progress theo folder/topic
+
+Chưa có hoặc mới làm một phần:
+- Dashboard cá nhân global cho toàn bộ folder
+- Analytics học tập theo tuần
+- Streak / spaced repetition dài hạn
 
 ---
 
@@ -21,21 +86,21 @@ curl http://localhost:8000/health
 open http://localhost:8000               # macOS — or just navigate to that URL
 ```
 
-**Smoke test the full flow:**
+**Smoke test the workspace flow:**
 
 ```bash
-# Upload the sample lecture
-curl -X POST http://localhost:8000/upload \
+# Upload the sample lecture into the bank
+curl -X POST http://localhost:8000/api/bank/documents/upload \
   -H "X-User-Id: alice" \
   -F "file=@sample_data/sample_lecture.txt"
 
-# Ask a question
-curl -X POST http://localhost:8000/query \
+# Create a folder
+curl -X POST http://localhost:8000/api/folders \
   -H "X-User-Id: alice" -H "Content-Type: application/json" \
-  -d '{"question":"What is gradient descent?"}'
+  -d '{"name":"Exam Revision"}'
 
-# List uploaded docs
-curl http://localhost:8000/docs/list -H "X-User-Id: alice"
+# List uploaded docs in the bank
+curl http://localhost:8000/api/bank/documents -H "X-User-Id: alice"
 ```
 
 The browser UI at `http://localhost:8000` does the same thing visually.
@@ -53,11 +118,12 @@ pytest -v
 src/
 ├── app.py               FastAPI app + routes. Runs in Lambda, ECS, EC2, App Runner.
 ├── config.py            Reads ALL settings from env vars. No hardcoded service names.
-├── handlers.py          Pure business logic. RAG flow: extract → ingest → retrieve → generate.
+├── handlers.py          Business logic for Bank -> Folder -> Topic -> Session -> Quiz.
 └── adapters/
     ├── ai.py            BedrockAI (real Bedrock Converse + KB RAG) | LocalAI (stub)
     ├── storage.py       S3Storage | LocalStorage (filesystem)
-    ├── userstore.py     DynamoDBUserStore | PostgresUserStore | SQLiteUserStore
+    ├── sqlite_store.py  Normalized local SQLite store for the workspace MVP
+    ├── userstore.py     Non-local adapters kept for future DynamoDB / SQL backends
     ├── vector.py        BedrockKBVector | LocalVector (in-memory keyword index)
     └── factory.py       Reads config → instantiates the chosen adapter
 ```
@@ -133,7 +199,7 @@ The provided code is the baseline. To earn the Original Architecture criterion y
 - **Difficulty levels** — generate quizzes at "easy / medium / hard"
 - **Multi-language** — detect input language, prompt accordingly
 - **Audio input** — accept .mp3 via S3 + Transcribe → ingest transcript
-- **Quiz generation** — new endpoint `/quiz` that produces multiple-choice questions from the user's docs
+- **Folder retrieval modes** — toggle between all-doc retrieval and folder-only retrieval with evidence
 - **Citation viewer** — frontend highlights the source chunk in the original PDF
 
 Document your customization in `docs/W7_evidence.md` section 7.

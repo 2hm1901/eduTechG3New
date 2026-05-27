@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StudyBot Dashboard</title>
+  <link rel="stylesheet" href="/assets/css/tokens.css">
+  <link rel="stylesheet" href="/assets/css/layout.css">
+  <link rel="stylesheet" href="/assets/css/components.css">
+  <link rel="stylesheet" href="/assets/css/folder.css">
+</head>
+<body>
+  <div class="page-shell app-shell">
+    <header class="topbar app-topbar reveal">
+      <div class="topbar-main">
+        <a href="/" class="brand-mark">StudyBot</a>
+        <nav class="topbar-nav">
+          <a class="nav-link" href="/">Bank</a>
+        </nav>
+      </div>
+      <div class="topbar-side">
+        <div class="status">User <strong id="user-label"></strong></div>
+        <button class="btn-secondary" id="logout-btn">Logout</button>
+      </div>
+    </header>
+
+    <section class="page-head reveal">
+      <div>
+        <span class="eyebrow">Folder Dashboard</span>
+        <h1 id="folder-title">Loading workspace...</h1>
+        <p class="muted" id="folder-meta">Loading folder state...</p>
+      </div>
+      <div class="page-head-actions">
+        <a class="btn btn-secondary" href="/" id="bank-link">Back</a>
+      </div>
+    </section>
+
+    <nav class="subnav reveal">
+      <a id="workspace-link" class="subnav-link" href="#">Workspace</a>
+      <a id="quiz-link" class="subnav-link" href="#">Quiz</a>
+      <a id="dashboard-link" class="subnav-link active" href="#">Dashboard</a>
+    </nav>
+
+    <main class="dashboard-layout reveal">
+      <section class="panel dashboard-hero">
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">Workspace Signals</span>
+            <h2>Overview</h2>
+            </div>
+          </div>
+        <div class="stats-grid wide" id="stats-grid"></div>
+      </section>
+
+      <section class="dashboard-columns">
+        <aside class="panel dashboard-side">
+          <div class="section-head compact">
+            <div>
+              <span class="eyebrow">Sources</span>
+              <h2>Files in folder</h2>
+            </div>
+          </div>
+          <div class="list simple-list" id="folder-docs"></div>
+        </aside>
+
+        <section class="panel dashboard-main">
+          <div class="section-head compact">
+              <div>
+                <span class="eyebrow">Topic progress</span>
+                <h2>Topics</h2>
+              </div>
+          </div>
+          <div class="list" id="topic-progress"></div>
+        </section>
+
+        <aside class="panel dashboard-side">
+          <div class="section-head compact">
+              <div>
+                <span class="eyebrow">Quiz history</span>
+                <h2>History</h2>
+              </div>
+          </div>
+          <div class="list" id="quiz-history"></div>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <div class="auth-overlay open" id="auth-overlay">
+    <div class="auth-box">
+      <h2>StudyBot Sign In</h2>
+      <p class="muted">Same account as Bank.</p>
+      <div class="stack">
+        <input id="auth-user" placeholder="Username">
+        <input id="auth-pass" type="password" placeholder="Password">
+        <div id="auth-error" class="small auth-error"></div>
+        <div class="row">
+          <button class="btn-primary" id="auth-login">Sign in</button>
+          <button class="btn-secondary" id="auth-register">Register</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-stack" id="toast-stack"></div>
+  <script type="module" src="/assets/js/folder-dashboard.js"></script>
+</body>
+</html>

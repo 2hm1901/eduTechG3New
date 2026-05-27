@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StudyBot Workspace</title>
+  <link rel="stylesheet" href="/assets/css/tokens.css">
+  <link rel="stylesheet" href="/assets/css/layout.css">
+  <link rel="stylesheet" href="/assets/css/components.css">
+  <link rel="stylesheet" href="/assets/css/folder.css">
+</head>
+<body class="folder-page folder-workspace-page">
+  <div class="page-shell app-shell">
+    <header class="topbar app-topbar reveal">
+      <div class="topbar-main">
+        <a href="/" class="brand-mark">StudyBot</a>
+        <nav class="topbar-nav">
+          <a class="nav-link" href="/">Bank</a>
+        </nav>
+      </div>
+      <div class="topbar-side">
+        <div class="status">User <strong id="user-label"></strong></div>
+        <button class="btn-secondary" id="logout-btn">Logout</button>
+      </div>
+    </header>
+
+    <section class="page-head reveal">
+      <div>
+        <span class="eyebrow">Folder Workspace</span>
+        <h1 id="folder-title">Loading workspace...</h1>
+        <p class="muted" id="folder-meta">Loading folder state...</p>
+      </div>
+      <div class="page-head-actions">
+        <a class="btn btn-secondary" href="/" id="bank-link">Back</a>
+      </div>
+    </section>
+
+    <nav class="subnav reveal">
+      <a id="workspace-link" class="subnav-link active" href="#">Workspace</a>
+      <a id="quiz-link" class="subnav-link" href="#">Quiz</a>
+      <a id="dashboard-link" class="subnav-link" href="#">Dashboard</a>
+    </nav>
+
+    <main class="workspace-grid folder-app reveal">
+      <aside class="panel folder-sidebar collapsible-sidebar" id="folder-sidebar">
+        <div class="sidebar-shell">
+          <div class="sidebar-toggle-row">
+            <button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-expanded="true" aria-label="Collapse left sidebar">
+              <span id="sidebar-toggle-icon" aria-hidden="true">‹</span>
+            </button>
+          </div>
+          <div class="side-rail sidebar-content">
+          <section class="section-block">
+            <div class="section-head compact">
+              <div>
+                <span class="eyebrow">Sources</span>
+                <h2>Files in folder</h2>
+              </div>
+            </div>
+            <div class="list simple-list" id="folder-docs"></div>
+          </section>
+
+          <section class="section-block">
+            <div class="section-head compact">
+              <div>
+                <span class="eyebrow">Sessions</span>
+                <h2>Sessions</h2>
+              </div>
+              <button class="btn-secondary" id="new-session-btn">New</button>
+            </div>
+            <div class="list" id="sessions-list"></div>
+          </section>
+          </div>
+        </div>
+      </aside>
+
+      <section class="panel folder-main">
+        <div class="chat-shell">
+          <div class="chat-head">
+            <div class="chat-intro">
+              <span class="eyebrow">Primary Workspace</span>
+              <h2>Ask the bank</h2>
+              <p class="muted">Topic focus is optional.</p>
+            </div>
+            <div class="chat-controls">
+              <label class="stack compact-stack">
+                <span class="small muted">Topic focus</span>
+                <select id="topic-select"></select>
+              </label>
+              <div class="focus-topic" id="focus-topic-card"></div>
+            </div>
+          </div>
+
+          <div class="chat-messages" id="chat-messages"></div>
+
+          <div class="chat-composer">
+            <input id="chat-input" placeholder="Ask a question, compare concepts, or request citations">
+            <button class="btn-primary" id="send-btn">Send</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel folder-rail">
+        <div class="side-rail side-rail-scroll">
+          <section class="section-block">
+            <div class="section-head compact">
+              <div>
+                <span class="eyebrow">Workspace Status</span>
+                <h2>Status</h2>
+              </div>
+            </div>
+            <div class="metric-strip vertical" id="workspace-signals"></div>
+            <div class="action-stack">
+              <a id="quiz-cta" class="btn btn-secondary" href="#">Quiz</a>
+              <a id="dashboard-cta" class="btn btn-secondary" href="#">Dashboard</a>
+            </div>
+          </section>
+
+          <section class="section-block">
+            <div class="section-head compact">
+              <div>
+                <span class="eyebrow">Topics</span>
+                <h2>Topics</h2>
+              </div>
+              <button class="btn-primary" id="generate-topics-btn">Generate</button>
+            </div>
+            <div class="list" id="topics-list"></div>
+          </section>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <div class="auth-overlay open" id="auth-overlay">
+    <div class="auth-box">
+      <h2>StudyBot Sign In</h2>
+      <p class="muted">Same account as Bank.</p>
+      <div class="stack">
+        <input id="auth-user" placeholder="Username">
+        <input id="auth-pass" type="password" placeholder="Password">
+        <div id="auth-error" class="small auth-error"></div>
+        <div class="row">
+          <button class="btn-primary" id="auth-login">Sign in</button>
+          <button class="btn-secondary" id="auth-register">Register</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-stack" id="toast-stack"></div>
+  <script type="module" src="/assets/js/folder-workspace.js"></script>
+</body>
+</html>

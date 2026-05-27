@@ -1,30 +1,19 @@
-"""FastAPI application — runtime-agnostic.
-
-Runs on:
-  - Local laptop:        uvicorn src.app:app --reload
-  - AWS Lambda:          wrap with Mangum (pip install mangum) → expose `handler`
-  - ECS Fargate / EC2:   uvicorn or gunicorn
-  - App Runner:          uvicorn
-
-The choice is yours. Code stays the same.
-"""
+"""FastAPI application — runtime-agnostic."""
 from pathlib import Path
 
-from fastapi import FastAPI, File, Header, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
-from src.config import config
-from src.adapters import factory
 from src import handlers
+from src.adapters import factory
+from src.config import config
 
 
-app = FastAPI(title="StudyBot — W7 Capstone Starter")
+app = FastAPI(title="StudyBot Workspace")
 
-
-# CORS — allow frontend to live on a different origin (CloudFront / Amplify / separate ALB).
-# CORS_ORIGINS env var controls this; default '*' is permissive for hackathon.
 _allowed = ["*"] if config.cors_origins == "*" else [o.strip() for o in config.cors_origins.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
@@ -34,7 +23,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Singletons. In serverless this gets re-initialized per cold start; that's fine.
 ai_client = factory.make_ai()
 storage = factory.make_storage()
 userstore = factory.make_userstore()
@@ -42,18 +30,53 @@ vector_store = factory.make_vector()
 
 
 def _resolve_user_id(x_user_id: str | None) -> str:
-    """Auth abstraction: extract user_id from header, fall back to default for local dev.
-
-    In production you populate X-User-Id from:
-      - Cognito JWT (decoded by API Gateway authorizer)
-      - Signed URL claim
-      - Custom auth Lambda
-    """
-    return x_user_id or config.default_user_id
+    if not x_user_id:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return x_user_id
 
 
-class QueryRequest(BaseModel):
-    question: str
+def _require_success(result: dict, status_code: int = 400) -> dict:
+    if "error" in result:
+        raise HTTPException(status_code=status_code, detail=result["error"])
+    return result
+
+
+class AuthRequest(BaseModel):
+    username: str
+    password: str
+
+
+class FolderCreateRequest(BaseModel):
+    name: str
+
+
+class FolderRenameRequest(BaseModel):
+    name: str
+
+
+class FolderDocumentsRequest(BaseModel):
+    doc_ids: list[str]
+
+
+class SessionCreateRequest(BaseModel):
+    title: str | None = None
+    topic_id: str | None = None
+
+
+class SessionMessageRequest(BaseModel):
+    message: str
+    topic_id: str | None = None
+
+
+class TopicQuizRequest(BaseModel):
+    question_count: int = Field(default=10, ge=1, le=25)
+
+
+class TopicQuizSubmitRequest(BaseModel):
+    question_count: int = Field(ge=1, le=25)
+    score: int = Field(ge=0)
+    total: int = Field(ge=1)
+    session_id: str | None = None
 
 
 @app.get("/health")
@@ -69,11 +92,29 @@ def health() -> dict:
     }
 
 
-@app.post("/upload")
-async def upload(
-    file: UploadFile = File(...),
-    x_user_id: str | None = Header(default=None),
-) -> dict:
+@app.post("/auth/register")
+def register(req: AuthRequest) -> dict:
+    result = handlers.handle_register(req.username, req.password, userstore)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+@app.post("/auth/login")
+def login(req: AuthRequest) -> dict:
+    result = handlers.handle_login(req.username, req.password, userstore)
+    if "error" in result:
+        raise HTTPException(status_code=401, detail=result["error"])
+    return result
+
+
+@app.get("/api/bank/documents")
+def api_list_bank_documents(x_user_id: str | None = Header(default=None)) -> dict:
+    return handlers.handle_list_docs(_resolve_user_id(x_user_id), userstore)
+
+
+@app.post("/api/bank/documents/upload")
+async def api_upload_bank_document(file: UploadFile = File(...), x_user_id: str | None = Header(default=None)) -> dict:
     user_id = _resolve_user_id(x_user_id)
     data = await file.read()
     if not data:
@@ -88,165 +129,154 @@ async def upload(
     )
 
 
-@app.post("/query")
-def query(req: QueryRequest, x_user_id: str | None = Header(default=None)) -> dict:
-    user_id = _resolve_user_id(x_user_id)
-    if not req.question.strip():
-        raise HTTPException(status_code=400, detail="Empty question")
-    return handlers.handle_query(
-        user_id=user_id,
-        question=req.question,
-        ai_client=ai_client,
-        userstore=userstore,
-        vector_store=vector_store,
-        vector_backend=config.vector_backend,
-        bedrock_kb_id=config.vector_bedrock_kb_id,
+@app.get("/api/folders")
+def api_list_folders(x_user_id: str | None = Header(default=None)) -> dict:
+    return handlers.handle_list_folders(_resolve_user_id(x_user_id), userstore)
+
+
+@app.post("/api/folders")
+def api_create_folder(req: FolderCreateRequest, x_user_id: str | None = Header(default=None)) -> dict:
+    if not req.name.strip():
+        raise HTTPException(status_code=400, detail="Folder name is required")
+    return _require_success(handlers.handle_create_folder(_resolve_user_id(x_user_id), req.name.strip(), userstore))
+
+
+@app.patch("/api/folders/{folder_id}")
+def api_rename_folder(folder_id: str, req: FolderRenameRequest, x_user_id: str | None = Header(default=None)) -> dict:
+    if not req.name.strip():
+        raise HTTPException(status_code=400, detail="Folder name is required")
+    return _require_success(handlers.handle_rename_folder(_resolve_user_id(x_user_id), folder_id, req.name.strip(), userstore))
+
+
+@app.get("/api/folders/{folder_id}")
+def api_get_folder(folder_id: str, x_user_id: str | None = Header(default=None)) -> dict:
+    return _require_success(handlers.handle_get_folder(_resolve_user_id(x_user_id), folder_id, userstore), status_code=404)
+
+
+@app.get("/api/folders/{folder_id}/documents")
+def api_get_folder_documents(folder_id: str, x_user_id: str | None = Header(default=None)) -> dict:
+    return _require_success(handlers.handle_get_folder(_resolve_user_id(x_user_id), folder_id, userstore), status_code=404)
+
+
+@app.post("/api/folders/{folder_id}/documents")
+def api_add_documents_to_folder(folder_id: str, req: FolderDocumentsRequest, x_user_id: str | None = Header(default=None)) -> dict:
+    if not req.doc_ids:
+        raise HTTPException(status_code=400, detail="At least one doc_id is required")
+    return _require_success(handlers.handle_add_documents_to_folder(_resolve_user_id(x_user_id), folder_id, req.doc_ids, userstore))
+
+
+@app.post("/api/folders/{folder_id}/topics/generate")
+def api_generate_topics(folder_id: str, x_user_id: str | None = Header(default=None)) -> dict:
+    return _require_success(
+        handlers.handle_generate_topics(_resolve_user_id(x_user_id), folder_id, ai_client, userstore, vector_store),
+        status_code=404,
     )
 
 
-@app.get("/docs/list")
-def list_docs(x_user_id: str | None = Header(default=None)) -> dict:
-    return handlers.handle_list_docs(_resolve_user_id(x_user_id), userstore)
+@app.get("/api/folders/{folder_id}/topics")
+def api_list_topics(folder_id: str, x_user_id: str | None = Header(default=None)) -> dict:
+    return _require_success(handlers.handle_list_topics(_resolve_user_id(x_user_id), folder_id, userstore), status_code=404)
 
 
-@app.get("/queries/recent")
-def recent(x_user_id: str | None = Header(default=None), limit: int = 10) -> dict:
-    return handlers.handle_recent_queries(_resolve_user_id(x_user_id), userstore, limit=limit)
+@app.get("/api/folders/{folder_id}/dashboard")
+def api_folder_dashboard(folder_id: str, x_user_id: str | None = Header(default=None)) -> dict:
+    return _require_success(handlers.handle_folder_dashboard(_resolve_user_id(x_user_id), folder_id, userstore), status_code=404)
 
 
-class DocRequest(BaseModel):
-    doc_id: str
-
-
-class QuizSubmitRequest(BaseModel):
-    doc_id: str
-    score: int
-    total: int
-
-
-class AuthRequest(BaseModel):
-    username: str
-    password: str
-
-
-class FolderAssignRequest(BaseModel):
-    doc_id: str
-    folder_name: str
-
-
-class FolderQuizRequest(BaseModel):
-    folder_name: str
-
-
-@app.post("/summary")
-def summary(req: DocRequest, x_user_id: str | None = Header(default=None)) -> dict:
-    """Generate a one-page summary + top 5 testable concepts for a specific document."""
-    user_id = _resolve_user_id(x_user_id)
-    if not req.doc_id.strip():
-        raise HTTPException(status_code=400, detail="doc_id is required")
-    return handlers.handle_summary(
-        user_id=user_id,
-        doc_id=req.doc_id,
-        ai_client=ai_client,
-        vector_store=vector_store,
+@app.post("/api/folders/{folder_id}/sessions")
+def api_create_chat_session(folder_id: str, req: SessionCreateRequest, x_user_id: str | None = Header(default=None)) -> dict:
+    return _require_success(
+        handlers.handle_create_chat_session(_resolve_user_id(x_user_id), folder_id, req.title, req.topic_id, userstore),
+        status_code=404,
     )
 
 
-@app.post("/quiz")
-def quiz(req: DocRequest, x_user_id: str | None = Header(default=None)) -> dict:
-    """Generate a 10-question multiple-choice quiz from a specific document."""
-    user_id = _resolve_user_id(x_user_id)
-    if not req.doc_id.strip():
-        raise HTTPException(status_code=400, detail="doc_id is required")
-    return handlers.handle_quiz(
-        user_id=user_id,
-        doc_id=req.doc_id,
-        ai_client=ai_client,
-        vector_store=vector_store,
+@app.get("/api/folders/{folder_id}/sessions")
+def api_list_chat_sessions(folder_id: str, x_user_id: str | None = Header(default=None)) -> dict:
+    return _require_success(handlers.handle_list_chat_sessions(_resolve_user_id(x_user_id), folder_id, userstore), status_code=404)
+
+
+@app.get("/api/sessions/{session_id}/messages")
+def api_list_session_messages(session_id: str, x_user_id: str | None = Header(default=None)) -> dict:
+    return _require_success(handlers.handle_list_chat_messages(_resolve_user_id(x_user_id), session_id, userstore), status_code=404)
+
+
+@app.post("/api/sessions/{session_id}/messages")
+def api_send_session_message(session_id: str, req: SessionMessageRequest, x_user_id: str | None = Header(default=None)) -> dict:
+    if not req.message.strip():
+        raise HTTPException(status_code=400, detail="Message is required")
+    return _require_success(
+        handlers.handle_chat_message(
+            user_id=_resolve_user_id(x_user_id),
+            session_id=session_id,
+            message=req.message.strip(),
+            topic_id=req.topic_id,
+            ai_client=ai_client,
+            userstore=userstore,
+            vector_store=vector_store,
+            vector_backend=config.vector_backend,
+            bedrock_kb_id=config.vector_bedrock_kb_id,
+        ),
+        status_code=404,
     )
 
 
-@app.post("/docs/folder")
-def assign_folder(req: FolderAssignRequest, x_user_id: str | None = Header(default=None)) -> dict:
-    """Assign a document to a folder."""
-    user_id = _resolve_user_id(x_user_id)
-    if not req.doc_id.strip() or not req.folder_name.strip():
-        raise HTTPException(status_code=400, detail="doc_id and folder_name are required")
-    return handlers.handle_assign_folder(
-        user_id=user_id,
-        doc_id=req.doc_id,
-        folder_name=req.folder_name,
-        userstore=userstore,
+@app.post("/api/topics/{topic_id}/quiz")
+def api_generate_topic_quiz(topic_id: str, req: TopicQuizRequest, x_user_id: str | None = Header(default=None)) -> dict:
+    return _require_success(
+        handlers.handle_topic_quiz(_resolve_user_id(x_user_id), topic_id, req.question_count, ai_client, userstore, vector_store),
+        status_code=404,
     )
 
 
-@app.post("/quiz/folder")
-def quiz_folder(req: FolderQuizRequest, x_user_id: str | None = Header(default=None)) -> dict:
-    """Generate a 10-question multiple-choice quiz from all documents in a folder."""
-    user_id = _resolve_user_id(x_user_id)
-    if not req.folder_name.strip():
-        raise HTTPException(status_code=400, detail="folder_name is required")
-    return handlers.handle_quiz_folder(
-        user_id=user_id,
-        folder_name=req.folder_name,
-        ai_client=ai_client,
-        vector_store=vector_store,
-        userstore=userstore,
+@app.post("/api/topics/{topic_id}/quiz/submit")
+def api_submit_topic_quiz(topic_id: str, req: TopicQuizSubmitRequest, x_user_id: str | None = Header(default=None)) -> dict:
+    return _require_success(
+        handlers.handle_topic_quiz_submit(
+            user_id=_resolve_user_id(x_user_id),
+            topic_id=topic_id,
+            question_count=req.question_count,
+            score=req.score,
+            total=req.total,
+            userstore=userstore,
+            session_id=req.session_id,
+        ),
+        status_code=404,
     )
 
 
-@app.post("/quiz/submit")
-def quiz_submit(req: QuizSubmitRequest, x_user_id: str | None = Header(default=None)) -> dict:
-    """Save a quiz result for the learning dashboard."""
-    user_id = _resolve_user_id(x_user_id)
-    return handlers.handle_quiz_submit(
-        user_id=user_id,
-        doc_id=req.doc_id,
-        score=req.score,
-        total=req.total,
-        userstore=userstore,
-    )
-
-
-@app.get("/dashboard")
-def dashboard(x_user_id: str | None = Header(default=None)) -> dict:
-    """Return aggregated learning stats for the dashboard."""
-    return handlers.handle_dashboard(_resolve_user_id(x_user_id), userstore)
-
-
-@app.post("/auth/register")
-def register(req: AuthRequest) -> dict:
-    """Register a new user."""
-    result = handlers.handle_register(req.username, req.password, userstore)
-    if "error" in result:
-        raise HTTPException(status_code=400, detail=result["error"])
-    return result
-
-
-@app.post("/auth/login")
-def login(req: AuthRequest) -> dict:
-    """Authenticate a user."""
-    result = handlers.handle_login(req.username, req.password, userstore)
-    if "error" in result:
-        raise HTTPException(status_code=401, detail=result["error"])
-    return result
-
-
-# ---- Static frontend ----
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
-
+PAGES_DIR = FRONTEND_DIR / "pages"
+ASSETS_DIR = FRONTEND_DIR / "assets"
 
 if config.serve_frontend:
+    if ASSETS_DIR.exists():
+        app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
+
     @app.get("/")
-    def index() -> FileResponse:
-        """Convenience: serves frontend/index.html at /. Set SERVE_FRONTEND=false
-        if you deploy the frontend separately (CloudFront+S3, Amplify, ALB)."""
-        return FileResponse(FRONTEND_DIR / "index.html")
+    def bank_page() -> FileResponse:
+        return FileResponse(PAGES_DIR / "bank.html")
+
+    @app.get("/folder/{folder_id}")
+    def folder_page(folder_id: str) -> FileResponse:
+        return FileResponse(PAGES_DIR / "folder-workspace.html")
+
+    @app.get("/folder/{folder_id}/workspace")
+    def folder_workspace_page(folder_id: str) -> FileResponse:
+        return FileResponse(PAGES_DIR / "folder-workspace.html")
+
+    @app.get("/folder/{folder_id}/quiz")
+    def folder_quiz_page(folder_id: str) -> FileResponse:
+        return FileResponse(PAGES_DIR / "folder-quiz.html")
+
+    @app.get("/folder/{folder_id}/dashboard")
+    def folder_dashboard_page(folder_id: str) -> FileResponse:
+        return FileResponse(PAGES_DIR / "folder-dashboard.html")
 
 
-# ---- AWS Lambda handler (Mangum) ----
 try:
     from mangum import Mangum
+
     handler = Mangum(app)
 except ImportError:
     pass

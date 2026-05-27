@@ -1,0 +1,381 @@
+.sidebar-shell {
+  display: grid;
+  gap: 12px;
+  position: sticky;
+  top: 92px;
+}
+
+.sidebar-toggle-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.sidebar-toggle {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg-subtle);
+  color: var(--muted);
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.sidebar-toggle:hover {
+  color: var(--accent);
+  border-color: var(--line-strong);
+}
+
+.side-rail {
+  position: sticky;
+  top: 92px;
+  display: grid;
+  gap: 14px;
+}
+
+.collapsible-sidebar .side-rail {
+  position: static;
+  top: auto;
+}
+
+.side-rail-scroll {
+  max-height: calc(100vh - 112px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.folder-sidebar,
+.folder-main,
+.folder-rail,
+.dashboard-main,
+.dashboard-side,
+.dashboard-hero {
+  min-width: 0;
+}
+
+.folder-sidebar,
+.folder-rail {
+  align-self: start;
+}
+
+.section-block {
+  display: grid;
+  gap: 10px;
+}
+
+.sidebar-head-stack {
+  align-items: stretch;
+}
+
+.simple-list-item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.simple-list-item:last-child {
+  border-bottom: 0;
+}
+
+.chat-shell {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 74vh;
+  gap: 14px;
+}
+
+.chat-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 12px;
+}
+
+.chat-intro h2 {
+  margin-bottom: 4px;
+  font-size: 1.15rem;
+}
+
+.chat-controls {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.focus-topic {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--bg-subtle);
+}
+
+.chat-messages {
+  overflow: auto;
+  display: grid;
+  gap: 10px;
+  padding-right: 4px;
+  align-content: start;
+}
+
+.chat-bubble {
+  max-width: 82%;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.chat-bubble.user {
+  margin-left: auto;
+  background: var(--accent-soft);
+}
+
+.chat-citations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.chat-composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.stats-grid.wide {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.stat-box {
+  border-radius: 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg-subtle);
+}
+
+.stat-box strong {
+  display: block;
+  font-size: 1.15rem;
+  margin-bottom: 2px;
+}
+
+.session-item,
+.history-item,
+.progress-item,
+.topic-item {
+  width: 100%;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #fff;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  text-align: left;
+}
+
+.topic-item,
+.session-item {
+  cursor: pointer;
+}
+
+.session-item:hover,
+.history-item:hover,
+.progress-item:hover,
+.topic-item:hover {
+  border-color: var(--line-strong);
+  background: #fbfdff;
+}
+
+.session-item.active,
+.topic-item.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.topic-item .row.between,
+.progress-item .row.between {
+  align-items: flex-start;
+}
+
+.topic-actions,
+.action-stack {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.topic-item strong,
+.progress-item strong,
+.history-item strong,
+.focus-topic strong {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.topic-item p,
+.progress-item p,
+.focus-topic span,
+#quiz-topic-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.topic-item p,
+.progress-item p,
+.focus-topic span {
+  -webkit-line-clamp: 3;
+}
+
+.progress-meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.quiz-stage {
+  display: grid;
+  gap: 14px;
+  min-height: 74vh;
+  align-content: start;
+}
+
+.quiz-stage-head {
+  align-items: stretch;
+}
+
+.quiz-stage-copy {
+  min-width: 0;
+}
+
+.quiz-stage-copy h2 {
+  margin-bottom: 6px;
+  line-height: 1.1;
+  font-size: 1.15rem;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+#quiz-topic-summary {
+  -webkit-line-clamp: 3;
+  max-width: 70ch;
+}
+
+.quiz-stage-actions {
+  display: flex;
+  align-items: flex-start;
+}
+
+.quiz-stage-actions .btn-primary {
+  min-width: 150px;
+}
+
+.quiz-header {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.quiz-question {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.answer-option {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.answer-option:hover {
+  border-color: var(--line-strong);
+}
+
+.left-sidebar-collapsed .workspace-grid.folder-app {
+  grid-template-columns: 72px minmax(0, 1fr) 320px;
+}
+
+.left-sidebar-collapsed .workspace-grid.folder-app.quiz-layout {
+  grid-template-columns: 72px minmax(0, 1.1fr) 340px;
+}
+
+.left-sidebar-collapsed .folder-sidebar {
+  padding: 16px 10px;
+}
+
+.left-sidebar-collapsed .folder-sidebar .sidebar-content {
+  display: none;
+}
+
+.left-sidebar-collapsed .folder-sidebar .sidebar-toggle-row {
+  justify-content: center;
+}
+
+@media (max-width: 1160px) {
+  .sidebar-shell,
+  .side-rail {
+    position: static;
+    top: auto;
+  }
+
+  .side-rail-scroll {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  .chat-head {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid.wide {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .left-sidebar-collapsed .workspace-grid.folder-app,
+  .left-sidebar-collapsed .workspace-grid.folder-app.quiz-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .left-sidebar-collapsed .folder-sidebar {
+    padding: 20px;
+  }
+
+  .left-sidebar-collapsed .folder-sidebar .sidebar-content {
+    display: grid;
+  }
+
+  .quiz-stage-head {
+    grid-template-columns: 1fr;
+  }
+
+  .quiz-stage-actions .btn-primary {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .chat-composer {
+    grid-template-columns: 1fr;
+  }
+}

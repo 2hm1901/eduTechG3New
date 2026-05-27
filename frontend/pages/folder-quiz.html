@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StudyBot Quiz</title>
+  <link rel="stylesheet" href="/assets/css/tokens.css">
+  <link rel="stylesheet" href="/assets/css/layout.css">
+  <link rel="stylesheet" href="/assets/css/components.css">
+  <link rel="stylesheet" href="/assets/css/folder.css">
+</head>
+<body class="folder-page folder-quiz-page">
+  <div class="page-shell app-shell">
+    <header class="topbar app-topbar reveal">
+      <div class="topbar-main">
+        <a href="/" class="brand-mark">StudyBot</a>
+        <nav class="topbar-nav">
+          <a class="nav-link" href="/">Bank</a>
+        </nav>
+      </div>
+      <div class="topbar-side">
+        <div class="status">User <strong id="user-label"></strong></div>
+        <button class="btn-secondary" id="logout-btn">Logout</button>
+      </div>
+    </header>
+
+    <section class="page-head reveal">
+      <div>
+        <span class="eyebrow">Folder Quiz</span>
+        <h1 id="folder-title">Loading workspace...</h1>
+        <p class="muted" id="folder-meta">Loading folder state...</p>
+      </div>
+      <div class="page-head-actions">
+        <a class="btn btn-secondary" href="/" id="bank-link">Back</a>
+      </div>
+    </section>
+
+    <nav class="subnav reveal">
+      <a id="workspace-link" class="subnav-link" href="#">Workspace</a>
+      <a id="quiz-link" class="subnav-link active" href="#">Quiz</a>
+      <a id="dashboard-link" class="subnav-link" href="#">Dashboard</a>
+    </nav>
+
+    <main class="workspace-grid folder-app quiz-layout reveal">
+      <aside class="panel folder-sidebar collapsible-sidebar" id="folder-sidebar">
+        <div class="sidebar-shell">
+          <div class="sidebar-toggle-row">
+            <button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-expanded="true" aria-label="Collapse left sidebar">
+              <span id="sidebar-toggle-icon" aria-hidden="true">‹</span>
+            </button>
+          </div>
+          <div class="side-rail sidebar-content">
+          <section class="section-block">
+            <div class="section-head compact sidebar-head-stack">
+              <div>
+                <span class="eyebrow">Topics</span>
+                <h2>Topic</h2>
+              </div>
+            </div>
+            <div class="stack compact-stack">
+              <label class="stack compact-stack">
+                <span class="small muted">Count</span>
+                <input id="question-count" type="number" min="1" max="25" value="10">
+              </label>
+              <button class="btn-primary" id="generate-topics-btn">Generate topics</button>
+            </div>
+            <div class="list" id="topics-list"></div>
+          </section>
+          </div>
+        </div>
+      </aside>
+
+      <section class="panel folder-main">
+        <div class="quiz-stage">
+          <div class="section-head quiz-stage-head">
+            <div class="quiz-stage-copy">
+              <span class="eyebrow">Quiz Builder</span>
+              <h2 id="quiz-topic-title">Pick a topic</h2>
+              <p class="muted" id="quiz-topic-summary">Build a quiz from one topic.</p>
+            </div>
+            <div class="quiz-stage-actions">
+              <button class="btn-primary" id="generate-quiz-btn">Generate</button>
+            </div>
+          </div>
+          <div id="quiz-shell" class="stack">
+            <div class="empty">Select a topic from the left rail to start.</div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel folder-rail">
+        <div class="side-rail side-rail-scroll">
+          <section class="section-block">
+            <div class="section-head compact">
+              <div>
+                <span class="eyebrow">Recent attempts</span>
+                <h2>History</h2>
+              </div>
+            </div>
+            <div class="list" id="quiz-history"></div>
+          </section>
+
+          <section class="section-block">
+            <div class="section-head compact">
+              <div>
+                <span class="eyebrow">Progress</span>
+                <h2>Progress</h2>
+              </div>
+            </div>
+            <div class="list" id="topic-progress"></div>
+          </section>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <div class="auth-overlay open" id="auth-overlay">
+    <div class="auth-box">
+      <h2>StudyBot Sign In</h2>
+      <p class="muted">Same account as Bank.</p>
+      <div class="stack">
+        <input id="auth-user" placeholder="Username">
+        <input id="auth-pass" type="password" placeholder="Password">
+        <div id="auth-error" class="small auth-error"></div>
+        <div class="row">
+          <button class="btn-primary" id="auth-login">Sign in</button>
+          <button class="btn-secondary" id="auth-register">Register</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-stack" id="toast-stack"></div>
+  <script type="module" src="/assets/js/folder-quiz.js"></script>
+</body>
+</html>

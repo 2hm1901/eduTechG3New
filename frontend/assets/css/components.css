@@ -1,0 +1,288 @@
+.btn,
+button {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 13px;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn:hover,
+button:hover {
+  transform: translateY(-1px);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--accent-strong);
+}
+
+.btn-secondary {
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-subtle);
+}
+
+.btn-danger {
+  background: rgba(185, 28, 28, 0.1);
+  color: var(--danger);
+}
+
+.field,
+input,
+select {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+  padding: 10px 12px;
+  font: inherit;
+  color: var(--ink);
+}
+
+.field:focus,
+input:focus,
+select:focus {
+  outline: 2px solid rgba(37, 99, 235, 0.14);
+  border-color: var(--accent);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.stack {
+  display: grid;
+  gap: 14px;
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.row.wrap {
+  flex-wrap: wrap;
+}
+
+.row.between {
+  justify-content: space-between;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.list {
+  display: grid;
+  gap: 12px;
+}
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: #fff;
+  padding: 16px;
+}
+
+.card h4,
+.card p {
+  margin: 0;
+}
+
+.small {
+  font-size: 0.8rem;
+}
+
+.mono {
+  font-family: var(--mono);
+}
+
+.empty {
+  color: var(--muted);
+  padding: 20px 0;
+  text-align: center;
+}
+
+.dropzone {
+  border: 1.5px dashed #bcd3ff;
+  border-radius: 18px;
+  padding: 18px;
+  text-align: center;
+  background: linear-gradient(180deg, #f6faff, #ffffff);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.dropzone.drag {
+  border-color: var(--accent);
+  transform: scale(1.01);
+}
+
+.dropzone-mark {
+  display: inline-block;
+  margin-bottom: 14px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--line);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: none;
+  place-items: center;
+  background: rgba(24, 24, 24, 0.48);
+  z-index: 1000;
+}
+
+.modal-backdrop.open {
+  display: grid;
+}
+
+.modal {
+  width: min(560px, calc(100vw - 24px));
+  padding: 20px;
+  border-radius: 18px;
+  background: var(--bg-strong);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.modal h3,
+.modal p {
+  margin-top: 0;
+}
+
+.modal-scroll {
+  max-height: 300px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #fff;
+  border: 1px solid var(--line);
+  font-size: 0.82rem;
+}
+
+.toast-stack {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  display: grid;
+  gap: 10px;
+  z-index: 1200;
+}
+
+.toast {
+  min-width: 240px;
+  max-width: 360px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--shadow);
+}
+
+.toast.error {
+  color: var(--danger);
+}
+
+.toast.success {
+  color: var(--success);
+}
+
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  place-items: center;
+  background: rgba(16, 16, 16, 0.55);
+  z-index: 1400;
+}
+
+.auth-overlay.open {
+  display: grid;
+}
+
+.auth-box {
+  width: min(420px, calc(100vw - 24px));
+  padding: 22px;
+  border-radius: 18px;
+  background: var(--bg-strong);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.pill-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.metric-strip {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.metric-strip.vertical {
+  display: grid;
+}
+
+.metric-pill {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--bg-subtle);
+}
+
+.metric-pill strong {
+  font-size: 1rem;
+  letter-spacing: -0.03em;
+}
+
+.metric-pill span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.compact-stack {
+  gap: 8px;
+}
+
+.auth-error {
+  color: var(--danger);
+  min-height: 18px;
+}
