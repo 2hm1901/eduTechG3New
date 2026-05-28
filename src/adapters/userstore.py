@@ -257,6 +257,147 @@ class DynamoDBUserStore:
         self.table.update_item(**kwargs)
         return self.get_document(user_id, doc_id)
 
+    def get_or_create_document_chat_session(self, user_id: str, doc_id: str, title: str | None = None) -> dict:
+        existing = self.get_document_chat_session(user_id, doc_id)
+        if existing:
+            return existing
+        now = _now()
+        item = {
+            "user_id": user_id,
+            "sk": f"DCHAT#{doc_id}",
+            "session_id": doc_id,
+            "doc_id": doc_id,
+            "title": title or "Document chat",
+            "message_count": 0,
+            "memory_summary": "",
+            "created_at": now,
+            "updated_at": now,
+        }
+        self.table.put_item(Item=item)
+        return self.get_document_chat_session(user_id, doc_id) or {
+            "session_id": doc_id,
+            "doc_id": doc_id,
+            "title": item["title"],
+            "message_count": 0,
+            "memory_summary": "",
+            "created_at": now,
+            "updated_at": now,
+        }
+
+    def get_document_chat_session(self, user_id: str, doc_id: str) -> dict | None:
+        resp = self.table.get_item(Key={"user_id": user_id, "sk": f"DCHAT#{doc_id}"})
+        item = resp.get("Item")
+        if not item:
+            return None
+        return {
+            "session_id": item.get("session_id", doc_id),
+            "doc_id": item.get("doc_id", doc_id),
+            "title": item.get("title", "Document chat"),
+            "message_count": int(item.get("message_count", 0)),
+            "memory_summary": item.get("memory_summary", ""),
+            "created_at": item.get("created_at", ""),
+            "updated_at": item.get("updated_at", ""),
+        }
+
+    def update_document_chat_session(
+        self,
+        user_id: str,
+        doc_id: str,
+        *,
+        message_count: int | None = None,
+        memory_summary: str | None = None,
+        title: str | None = None,
+    ) -> dict | None:
+        existing = self.get_document_chat_session(user_id, doc_id)
+        if not existing:
+            return None
+
+        updates = ["updated_at = :updated_at"]
+        values = {":updated_at": _now()}
+        names = {}
+
+        if message_count is not None:
+            updates.append("message_count = :message_count")
+            values[":message_count"] = int(message_count)
+        if memory_summary is not None:
+            updates.append("memory_summary = :memory_summary")
+            values[":memory_summary"] = memory_summary
+            updates.append("memory_summary_updated_at = :memory_summary_updated_at")
+            values[":memory_summary_updated_at"] = values[":updated_at"]
+        if title is not None:
+            updates.append("#title = :title")
+            names["#title"] = "title"
+            values[":title"] = title
+
+        kwargs = {
+            "Key": {"user_id": user_id, "sk": f"DCHAT#{doc_id}"},
+            "UpdateExpression": "SET " + ", ".join(updates),
+            "ExpressionAttributeValues": values,
+        }
+        if names:
+            kwargs["ExpressionAttributeNames"] = names
+        self.table.update_item(**kwargs)
+        return self.get_document_chat_session(user_id, doc_id)
+
+    def add_document_chat_message(
+        self,
+        user_id: str,
+        doc_id: str,
+        role: str,
+        content: str,
+        citations: list[dict] | None = None,
+    ) -> dict:
+        self.get_or_create_document_chat_session(user_id, doc_id)
+        ts = _now()
+        msg_id = secrets.token_hex(8)
+        self.table.put_item(
+            Item={
+                "user_id": user_id,
+                "sk": f"DCHATMSG#{doc_id}#{ts}#{msg_id}",
+                "session_id": doc_id,
+                "doc_id": doc_id,
+                "message_id": msg_id,
+                "role": role,
+                "content": content[:5000],
+                "citations": citations or [],
+                "created_at": ts,
+            }
+        )
+        messages = self.list_document_chat_messages(user_id, doc_id)
+        title = None
+        if role == "user" and len(messages) == 1:
+            title = content[:60]
+        self.update_document_chat_session(user_id, doc_id, message_count=len(messages), title=title)
+        return {
+            "message_id": msg_id,
+            "session_id": doc_id,
+            "doc_id": doc_id,
+            "role": role,
+            "content": content,
+            "citations": citations or [],
+            "created_at": ts,
+        }
+
+    def list_document_chat_messages(self, user_id: str, doc_id: str) -> list[dict]:
+        resp = self.table.query(
+            KeyConditionExpression="user_id = :u AND begins_with(sk, :p)",
+            ExpressionAttributeValues={":u": user_id, ":p": f"DCHATMSG#{doc_id}#"},
+        )
+        items = resp.get("Items", [])
+        items.sort(key=lambda item: item.get("created_at", ""))
+        return [
+            {
+                "message_id": item.get("message_id", ""),
+                "session_id": item.get("session_id", doc_id),
+                "doc_id": item.get("doc_id", doc_id),
+                "role": item.get("role", ""),
+                "content": item.get("content", ""),
+                "citations": item.get("citations", []),
+                "created_at": item.get("created_at", ""),
+            }
+            for item in items
+        ]
+
     def rename_folder(self, user_id: str, folder_id: str, name: str) -> dict:
         sk = f"FOLDER#{folder_id}"
         resp = self.table.get_item(Key={"user_id": user_id, "sk": sk})

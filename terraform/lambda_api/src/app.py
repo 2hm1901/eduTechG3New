@@ -297,11 +297,11 @@ class DocQuizSubmitRequest(BaseModel):
 
 @app.post("/quiz")
 def api_local_doc_quiz(req: DocQuizRequest, request: Request, x_user_id: str | None = Header(default=None)) -> dict:
-    """Local mock endpoint for summarize_quiz lambda. Overridden by API Gateway in AWS."""
+    """Local mock endpoint for summarize_quiz lambda."""
     user_id = _resolve_user_id(request, x_user_id)
-    text = handlers._get_doc_text(user_id, req.doc_id, vector_store)
+    text = handlers._get_doc_text_with_fallback(user_id, req.doc_id, vector_store, userstore)
     if not text.strip():
-        raise HTTPException(status_code=404, detail="Document text not found. May still be processing.")
+        raise HTTPException(status_code=404, detail="Document text not found.")
     
     prompt = handlers.QUIZ_PROMPT_TEMPLATE.format(content=text[:15000], question_count=10)
     try:
@@ -365,6 +365,7 @@ def api_doc_testable_concepts(doc_id: str, request: Request, x_user_id: str | No
             doc_id=doc_id,
             ai_client=ai_client,
             vector_store=vector_store,
+            userstore=userstore,
         ),
         status_code=404,
     )
@@ -384,16 +385,32 @@ def api_doc_topics(doc_id: str, request: Request, x_user_id: str | None = Header
     )
 
 
-@app.post("/api/documents/{doc_id}/chat")
-def api_doc_chat(doc_id: str, req: DocChatRequest, request: Request, x_user_id: str | None = Header(default=None)) -> dict:
+@app.get("/api/documents/{doc_id}/chat")
+def api_get_doc_chat(doc_id: str, request: Request, x_user_id: str | None = Header(default=None)) -> dict:
+    return _require_success(
+        handlers.handle_get_document_chat(
+            user_id=_resolve_user_id(request, x_user_id),
+            doc_id=doc_id,
+            userstore=userstore,
+        ),
+        status_code=404,
+    )
+
+
+@app.post("/api/documents/{doc_id}/chat/messages")
+def api_doc_chat_message(doc_id: str, req: DocChatRequest, request: Request, x_user_id: str | None = Header(default=None)) -> dict:
     if not req.message.strip():
         raise HTTPException(status_code=400, detail="Message is required")
-    return handlers.handle_doc_chat(
-        user_id=_resolve_user_id(request, x_user_id),
-        doc_id=doc_id,
-        message=req.message.strip(),
-        ai_client=ai_client,
-        vector_store=vector_store,
+    return _require_success(
+        handlers.handle_document_chat_message(
+            user_id=_resolve_user_id(request, x_user_id),
+            doc_id=doc_id,
+            message=req.message.strip(),
+            ai_client=ai_client,
+            vector_store=vector_store,
+            userstore=userstore,
+        ),
+        status_code=404,
     )
 
 

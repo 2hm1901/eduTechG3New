@@ -35,6 +35,23 @@ class BedrockAI:
         )
         return resp["output"]["message"]["content"][0]["text"]
 
+    def converse(self, system_prompt: str, user_prompt: str, prior_messages: list[dict] | None = None, **kwargs: Any) -> str:
+        max_tokens = kwargs.get("max_tokens", 1024)
+        messages = []
+        for message in prior_messages or []:
+            role = message.get("role")
+            if role not in {"user", "assistant"}:
+                continue
+            messages.append({"role": role, "content": [{"text": message.get("content", "")}]})
+        messages.append({"role": "user", "content": [{"text": user_prompt}]})
+        resp = self.runtime.converse(
+            modelId=self.model_id,
+            system=[{"text": system_prompt}],
+            messages=messages,
+            inferenceConfig={"maxTokens": max_tokens, "temperature": kwargs.get("temperature", 0.2)},
+        )
+        return resp["output"]["message"]["content"][0]["text"]
+
     def retrieve_and_generate(self, query: str, kb_id: str = "") -> dict:
         if not kb_id:
             raise ValueError("VECTOR_BEDROCK_KB_ID must be set for Bedrock KB retrieve_and_generate")
@@ -70,6 +87,12 @@ class LocalAI:
             f"[LOCAL_AI_STUB] Received prompt: {snippet!r}... "
             "Set AI_BACKEND=bedrock + AWS credentials for real Bedrock output."
         )
+
+    def converse(self, system_prompt: str, user_prompt: str, prior_messages: list[dict] | None = None, **kwargs: Any) -> str:
+        combined = " ".join(
+            [system_prompt[:120], *(m.get("content", "")[:80] for m in (prior_messages or [])[-3:]), user_prompt[:200]]
+        )
+        return f"[LOCAL_AI_STUB] Received chat prompt: {combined!r}..."
 
     def retrieve_and_generate(self, query: str, kb_id: str = "") -> dict:
         return {

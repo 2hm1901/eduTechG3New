@@ -39,12 +39,48 @@
     </section>
 
     <main class="doc-workspace-layout reveal">
+      <aside class="panel doc-insights-panel">
+        <div class="insights-shell">
+          <div class="insights-section">
+            <div class="section-head">
+              <span class="eyebrow">Document Insights</span>
+              <h2>Quick Summary</h2>
+            </div>
+            <div id="summary-panel" class="insights-body">
+              <div class="doc-loading-state" id="summary-loading-state">
+                <div class="loading-spinner"></div>
+                <p class="muted">Summarizing your document...</p>
+              </div>
+            </div>
+          </div>
+          <div class="insights-section">
+            <div class="section-head">
+              <span class="eyebrow">Study Guide</span>
+              <h2>Five Topics</h2>
+            </div>
+            <div id="topics-panel" class="insights-body">
+              <div class="doc-loading-state compact" id="topics-loading-state">
+                <div class="loading-spinner"></div>
+                <p class="muted">Generating topics...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
       <section class="panel doc-main-panel">
         <div class="chat-shell">
+          <div class="chat-head">
+            <div class="chat-intro">
+              <span class="eyebrow">Document Chat</span>
+              <h2>Ask about this document</h2>
+              <p class="muted">Answers stay grounded in the uploaded file only.</p>
+            </div>
+          </div>
           <div class="chat-messages" id="chat-messages">
-            <div class="doc-loading-state" id="loading-state">
+            <div class="doc-loading-state" id="chat-loading-state">
               <div class="loading-spinner"></div>
-              <p class="muted">Analyzing your document...</p>
+              <p class="muted">Loading your chat session...</p>
             </div>
           </div>
 
