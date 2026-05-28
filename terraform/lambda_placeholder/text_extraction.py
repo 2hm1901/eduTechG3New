@@ -3,6 +3,7 @@ import json
 import os
 import re
 import urllib.parse
+from datetime import datetime, timezone
 
 import boto3
 
@@ -34,6 +35,54 @@ def _build_source_key(source_key: str) -> str:
     base = source_key.rsplit(".", 1)[0]
     base = _safe_key(base)
     return f"source/{base}.txt"
+
+
+def _build_metadata_key(source_key_out: str) -> str:
+    return f"{source_key_out}.metadata.json"
+
+
+def _extract_ids_from_source_key(source_key: str) -> tuple[str, str]:
+    # Expected upload key format: {user_id}/{doc_id}/{filename}
+    parts = [p for p in source_key.split("/") if p]
+    user_id = parts[0] if len(parts) >= 1 else "unknown"
+    doc_id = parts[1] if len(parts) >= 2 else "unknown"
+    return user_id, doc_id
+
+
+def _build_metadata_payload(source_key: str, source_key_out: str) -> dict:
+    user_id, doc_id = _extract_ids_from_source_key(source_key)
+    filename = source_key.rsplit("/", 1)[-1]
+    return {
+        "metadataAttributes": {
+            "doc_id": {
+                "value": {"type": "STRING", "stringValue": doc_id},
+                "includeForEmbedding": False,
+            },
+            "user_id": {
+                "value": {"type": "STRING", "stringValue": user_id},
+                "includeForEmbedding": False,
+            },
+            "source_key": {
+                "value": {"type": "STRING", "stringValue": source_key},
+                "includeForEmbedding": False,
+            },
+            "source_txt_key": {
+                "value": {"type": "STRING", "stringValue": source_key_out},
+                "includeForEmbedding": False,
+            },
+            "filename": {
+                "value": {"type": "STRING", "stringValue": filename},
+                "includeForEmbedding": False,
+            },
+            "ingested_at": {
+                "value": {
+                    "type": "STRING",
+                    "stringValue": datetime.now(timezone.utc).isoformat(),
+                },
+                "includeForEmbedding": False,
+            },
+        }
+    }
 
 
 def lambda_handler(event, context):
@@ -68,6 +117,14 @@ def lambda_handler(event, context):
             Key=source_key_out,
             Body=text.encode("utf-8"),
             ContentType="text/plain; charset=utf-8",
+        )
+        metadata_key = _build_metadata_key(source_key_out)
+        metadata_payload = _build_metadata_payload(source_key, source_key_out)
+        s3.put_object(
+            Bucket=source_bucket,
+            Key=metadata_key,
+            Body=json.dumps(metadata_payload).encode("utf-8"),
+            ContentType="application/json",
         )
         processed += 1
 
