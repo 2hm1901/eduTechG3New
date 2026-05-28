@@ -69,19 +69,20 @@ QUESTION: {question}
 
 ANSWER:"""
 
-DOC_SUMMARY_PROMPT = """You are a study assistant. Read the document content below and write a clear, comprehensive ONE-PAGE SUMMARY.
+DOC_SUMMARY_PROMPT = """You are a study assistant. Read the document content below and write a concise study summary.
 
 RULES:
-- Cover ALL key concepts, theories, and important details
-- Use clear headings and bullet points where appropriate
-- Keep it concise but thorough — aim for 300-500 words
-- Write in a way that helps students understand and remember the material
-- Do NOT invent information — only summarize what is in the document
+- Keep it brief: 120-180 words total
+- Focus only on the most important concepts
+- Use 3-5 short bullet points
+- End with a one-sentence takeaway
+- Write clearly for a student revising quickly
+- Do NOT invent information
 
 DOCUMENT CONTENT:
 {content}
 
-ONE-PAGE SUMMARY:"""
+CONCISE SUMMARY:"""
 
 DOC_TESTABLE_CONCEPTS_PROMPT = """You are a study assistant. Read the document content below and identify the FIVE MOST TESTABLE CONCEPTS — ideas that are most likely to appear on an exam or quiz.
 
@@ -563,8 +564,17 @@ def handle_topic_quiz_submit(user_id: str, topic_id: str, question_count: int, s
 def _fallback_summary(text: str) -> str:
     """Generate a simple extractive summary when AI is unavailable."""
     sentences = re.split(r"(?<=[.!?])\s+", text.strip())
-    selected = sentences[: min(12, len(sentences))]
-    return " ".join(selected) if selected else "No content available for summary."
+    selected = [s.strip() for s in sentences[:4] if s.strip()]
+    if not selected:
+        return "No content available for summary."
+    bullets = "\n".join(f"- {sentence}" for sentence in selected[:3])
+    takeaway = selected[-1]
+    return f"{bullets}\n\nTakeaway: {takeaway}"
+
+
+def _is_verbose_summary(summary: str) -> bool:
+    words = len(re.findall(r"\S+", summary or ""))
+    return words > 220 or len(summary or "") > 1400
 
 
 def _fallback_testable_concepts(text: str) -> list[dict]:
@@ -592,7 +602,7 @@ def _fallback_doc_topics(doc_id: str, text: str) -> list[dict]:
 def handle_doc_summary(user_id: str, doc_id: str, ai_client, vector_store, userstore) -> dict:
     document = userstore.get_document(user_id, doc_id) if hasattr(userstore, "get_document") else None
     cached_summary = (document or {}).get("doc_summary")
-    if cached_summary:
+    if cached_summary and not _is_verbose_summary(cached_summary):
         return {"doc_id": doc_id, "summary": cached_summary, "cached": True}
 
     text = _get_doc_text(user_id, doc_id, vector_store)
@@ -600,7 +610,7 @@ def handle_doc_summary(user_id: str, doc_id: str, ai_client, vector_store, users
         return {"error": "No content found for this document. It may still be processing."}
     content = text[:15000]
     try:
-        summary = ai_client.invoke(DOC_SUMMARY_PROMPT.format(content=content), max_tokens=1024)
+        summary = ai_client.invoke(DOC_SUMMARY_PROMPT.format(content=content), max_tokens=384)
     except Exception:
         summary = _fallback_summary(text)
     if hasattr(userstore, "update_document_analysis"):

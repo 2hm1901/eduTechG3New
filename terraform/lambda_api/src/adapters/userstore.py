@@ -230,12 +230,14 @@ class DynamoDBUserStore:
         if not updates:
             return self.get_document(user_id, doc_id)
 
-        self.table.update_item(
-            Key={"user_id": user_id, "sk": f"DOC#{doc_id}"},
-            UpdateExpression="SET " + ", ".join(updates),
-            ExpressionAttributeNames=names or None,
-            ExpressionAttributeValues=values,
-        )
+        kwargs = {
+            "Key": {"user_id": user_id, "sk": f"DOC#{doc_id}"},
+            "UpdateExpression": "SET " + ", ".join(updates),
+            "ExpressionAttributeValues": values,
+        }
+        if names:
+            kwargs["ExpressionAttributeNames"] = names
+        self.table.update_item(**kwargs)
         return self.get_document(user_id, doc_id)
 
     def rename_folder(self, user_id: str, folder_id: str, name: str) -> dict:
