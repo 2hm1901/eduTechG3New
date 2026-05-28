@@ -6,7 +6,8 @@ import boto3
 QUIZ_PROMPT_TEMPLATE = """You are a study assistant. Based on the study content below, generate exactly {question_count} multiple-choice quiz questions.
 
 RULES:
-- Each question must have exactly 4 options labeled A, B, C, D.
+- Each question must have exactly 4 options.
+- The options dictionary MUST use EXACTLY the keys "A", "B", "C", and "D". Do not use any other letters or numbers.
 - Exactly one option is correct.
 - Questions should test understanding, not just memorisation.
 - Cover different parts of the content.
@@ -54,32 +55,13 @@ def _invoke_bedrock(content: str, question_count: int, region: str, model_id: st
     bedrock = boto3.client("bedrock-runtime", region_name=region)
     prompt = QUIZ_PROMPT_TEMPLATE.format(content=content[:15000], question_count=question_count)
     
-    if "anthropic.claude" in model_id:
-        body = json.dumps({
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": 2048,
-            "messages": [{"role": "user", "content": prompt}],
-        })
-    else:
-        # Generic fallback
-        body = json.dumps({
-            "inputText": prompt,
-            "textGenerationConfig": {"maxTokenCount": 2048, "temperature": 0.5}
-        })
-
-    response = bedrock.invoke_model(
+    response = bedrock.converse(
         modelId=model_id,
-        body=body,
-        accept="application/json",
-        contentType="application/json"
+        messages=[{"role": "user", "content": [{"text": prompt}]}],
+        inferenceConfig={"maxTokens": 2048, "temperature": 0.5}
     )
     
-    response_body = json.loads(response.get("body").read())
-    
-    if "anthropic.claude" in model_id:
-        return response_body["content"][0]["text"]
-    else:
-        return response_body.get("results", [{}])[0].get("outputText", "")
+    return response["output"]["message"]["content"][0]["text"]
 
 def _parse_json_array(raw: str) -> list:
     cleaned = raw.strip()

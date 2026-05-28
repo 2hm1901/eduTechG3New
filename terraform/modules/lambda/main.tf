@@ -175,6 +175,11 @@ resource "aws_iam_role_policy" "summarize_quiz" {
       },
       {
         Effect   = "Allow"
+        Action   = ["kms:Decrypt", "kms:GenerateDataKey"]
+        Resource = var.kms_key_arn
+      },
+      {
+        Effect   = "Allow"
         Action   = ["dynamodb:PutItem", "dynamodb:GetItem"]
         Resource = "arn:aws:dynamodb:${var.region}:*:table/${var.dynamodb_table_name}"
       },
