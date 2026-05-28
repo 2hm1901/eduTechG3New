@@ -227,6 +227,15 @@ terraform apply
 cd ..
 ```
 
+Terraform state dùng remote backend S3, không commit file `terraform.tfstate` lên Git. Backend hiện tại:
+
+- Bucket: `ai-study-buddy-tfstate-894597652722`
+- Key: `w7-hackathon/terraform.tfstate`
+- Region: `ap-southeast-2`
+- Lock: S3 native lockfile (`use_lockfile = true`)
+
+Dev mới clone repo chỉ cần có AWS credentials đúng account rồi chạy `terraform init`; Terraform sẽ tự đọc state từ S3 nên `terraform plan` không tạo lại toàn bộ resource.
+
 Nếu cần build lại từ đầu trên macOS/Linux:
 
 ```bash
