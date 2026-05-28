@@ -16,8 +16,8 @@ module "networking" {
 }
 
 module "s3" {
-  source     = "./modules/s3"
-  account_id = local.account_id
+  source      = "./modules/s3"
+  account_id  = local.account_id
   kms_key_arn = module.kms.pdf_kms_key_arn
 }
 
@@ -31,40 +31,40 @@ module "dynamodb" {
 }
 
 module "lambda" {
-  source                     = "./modules/lambda"
-  region                     = var.region
-  subnet_id                  = module.networking.private_subnet_id
-  lambda_security_group_id   = module.networking.lambda_security_group_id
-  pdf_bucket_name            = module.s3.pdf_bucket_name
-  pdf_bucket_arn             = module.s3.pdf_bucket_arn
-  source_bucket_name         = module.s3.source_bucket_name
-  source_bucket_arn          = module.s3.source_bucket_arn
-  kms_key_arn                = module.kms.pdf_kms_key_arn
-  bedrock_kb_id              = var.bedrock_kb_id
-  bedrock_datasource_id      = var.bedrock_datasource_id
-  bedrock_model_arn          = var.bedrock_model_arn
-  bedrock_model_id           = var.bedrock_model_id
-  dynamodb_table_name        = module.dynamodb.table_name
-  upload_handler_zip         = var.upload_handler_zip
-  text_extraction_zip        = var.text_extraction_zip
-  chat_zip                   = var.chat_zip
-  summarize_quiz_zip         = var.summarize_quiz_zip
-  dashboard_zip              = var.dashboard_zip
-  api_backend_zip            = var.api_backend_zip
-  pypdf_layer_arn            = var.pypdf_layer_arn
-  cors_origin                = var.cors_origin
+  source                   = "./modules/lambda"
+  region                   = var.region
+  subnet_id                = module.networking.private_subnet_id
+  lambda_security_group_id = module.networking.lambda_security_group_id
+  pdf_bucket_name          = module.s3.pdf_bucket_name
+  pdf_bucket_arn           = module.s3.pdf_bucket_arn
+  source_bucket_name       = module.s3.source_bucket_name
+  source_bucket_arn        = module.s3.source_bucket_arn
+  kms_key_arn              = module.kms.pdf_kms_key_arn
+  bedrock_kb_id            = var.bedrock_kb_id
+  bedrock_datasource_id    = var.bedrock_datasource_id
+  bedrock_model_arn        = var.bedrock_model_arn
+  bedrock_model_id         = var.bedrock_model_id
+  dynamodb_table_name      = module.dynamodb.table_name
+  upload_handler_zip       = var.upload_handler_zip
+  text_extraction_zip      = var.text_extraction_zip
+  chat_zip                 = var.chat_zip
+  summarize_quiz_zip       = var.summarize_quiz_zip
+  dashboard_zip            = var.dashboard_zip
+  api_backend_zip          = var.api_backend_zip
+  pypdf_layer_arn          = var.pypdf_layer_arn
+  cors_origin              = var.cors_origin
 }
 
 module "api_gateway" {
-  source                  = "./modules/api_gateway"
-  user_pool_arn           = module.cognito.user_pool_arn
-  upload_handler_arn      = module.lambda.upload_handler_arn
-  chat_arn                = module.lambda.chat_arn
-  summarize_quiz_arn      = module.lambda.summarize_quiz_arn
-  dashboard_arn           = module.lambda.dashboard_arn
-  api_backend_arn         = module.lambda.api_backend_arn
-  stage_name              = var.env
-  cors_origin             = var.cors_origin
+  source             = "./modules/api_gateway"
+  user_pool_arn      = module.cognito.user_pool_arn
+  upload_handler_arn = module.lambda.upload_handler_arn
+  chat_arn           = module.lambda.chat_arn
+  summarize_quiz_arn = module.lambda.summarize_quiz_arn
+  dashboard_arn      = module.lambda.dashboard_arn
+  api_backend_arn    = module.lambda.api_backend_arn
+  stage_name         = var.env
+  cors_origin        = var.cors_origin
 }
 
 module "cloudfront" {
@@ -73,9 +73,9 @@ module "cloudfront" {
 }
 
 module "monitoring" {
-  source          = "./modules/monitoring"
-  lambda_names    = module.lambda.lambda_names
-  lambda_timeouts = module.lambda.lambda_timeouts
+  source              = "./modules/monitoring"
+  lambda_names        = module.lambda.lambda_names
+  lambda_timeouts     = module.lambda.lambda_timeouts
   dynamodb_table_name = module.dynamodb.table_name
 }
 
@@ -166,6 +166,39 @@ resource "aws_s3_bucket_policy" "source" {
         Principal = { AWS = module.lambda.text_extraction_role_arn }
         Action    = ["s3:PutObject"]
         Resource  = "${module.s3.source_bucket_arn}/*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "bedrock_kb_source_kms" {
+  name = "ai-study-buddy-source-kms-access"
+  role = var.bedrock_kb_role_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:DescribeKey"
+        ]
+        Resource = module.kms.pdf_kms_key_arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject"
+        ]
+        Resource = "${module.s3.source_bucket_arn}/*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket"
+        ]
+        Resource = module.s3.source_bucket_arn
       }
     ]
   })

@@ -83,10 +83,15 @@ variable "bedrock_datasource_id" {
   default     = "HSBK4AKJXO"
 }
 
+variable "bedrock_kb_role_name" {
+  type        = string
+  description = "IAM role name used by the manual Bedrock Knowledge Base"
+  default     = "AmazonBedrockExecutionRoleForKnowledgeBase_ju45k"
+}
+
 
 variable "cors_origin" {
   type        = string
   description = "Allowed CORS origin for API Gateway and backend"
   default     = "*"
 }
-
