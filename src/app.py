@@ -288,6 +288,32 @@ def api_submit_topic_quiz(topic_id: str, req: TopicQuizSubmitRequest, request: R
     )
 
 
+class DocQuizRequest(BaseModel):
+    doc_id: str
+
+@app.post("/quiz")
+def api_local_doc_quiz(req: DocQuizRequest, request: Request, x_user_id: str | None = Header(default=None)) -> dict:
+    """Local mock endpoint for summarize_quiz lambda."""
+    user_id = _resolve_user_id(request, x_user_id)
+    text = handlers._get_doc_text(user_id, req.doc_id, vector_store)
+    if not text.strip():
+        raise HTTPException(status_code=404, detail="Document text not found.")
+    
+    prompt = handlers.QUIZ_PROMPT_TEMPLATE.format(content=text[:15000], question_count=10)
+    try:
+        raw = ai_client.invoke(prompt, max_tokens=2048)
+        quiz = handlers._parse_json_array(raw)
+    except Exception as e:
+        quiz = [{
+            "id": 1,
+            "question": f"Local error: {str(e)}",
+            "options": {"A": "Ok", "B": "Cancel", "C": "Retry", "D": "Exit"},
+            "answer": "A",
+            "explanation": "Local error fallback"
+        }]
+    return {"quiz": quiz}
+
+
 class DocChatRequest(BaseModel):
     message: str
 
