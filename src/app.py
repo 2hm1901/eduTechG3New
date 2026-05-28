@@ -291,6 +291,10 @@ def api_submit_topic_quiz(topic_id: str, req: TopicQuizSubmitRequest, request: R
 class DocQuizRequest(BaseModel):
     doc_id: str
 
+class DocQuizSubmitRequest(BaseModel):
+    score: int
+    total: int
+
 @app.post("/quiz")
 def api_local_doc_quiz(req: DocQuizRequest, request: Request, x_user_id: str | None = Header(default=None)) -> dict:
     """Local mock endpoint for summarize_quiz lambda."""
@@ -312,6 +316,27 @@ def api_local_doc_quiz(req: DocQuizRequest, request: Request, x_user_id: str | N
             "explanation": "Local error fallback"
         }]
     return {"quiz": quiz}
+
+
+@app.post("/api/documents/{doc_id}/quiz/submit")
+def api_submit_doc_quiz(doc_id: str, req: DocQuizSubmitRequest, request: Request, x_user_id: str | None = Header(default=None)) -> dict:
+    userstore.log_quiz_result(
+        user_id=_resolve_user_id(request, x_user_id),
+        doc_id=doc_id,
+        score=req.score,
+        total=req.total
+    )
+    return {"status": "ok"}
+
+
+@app.get("/api/documents/{doc_id}/quiz/history")
+def api_get_doc_quiz_history(doc_id: str, request: Request, x_user_id: str | None = Header(default=None)) -> dict:
+    history = userstore.list_doc_quiz_attempts(
+        user_id=_resolve_user_id(request, x_user_id),
+        doc_id=doc_id,
+        limit=20
+    )
+    return {"history": history}
 
 
 class DocChatRequest(BaseModel):

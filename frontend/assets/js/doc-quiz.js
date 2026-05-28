@@ -74,7 +74,7 @@ function renderQuiz() {
   byId("quiz-container").style.display = "block";
 }
 
-function submitQuiz() {
+async function submitQuiz() {
   const answers = [];
   let isComplete = true;
   
@@ -102,6 +102,18 @@ function submitQuiz() {
     </div>
   `;
   
+  try {
+    await api(`/api/documents/${docId}/quiz/submit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ score, total }),
+    });
+    showToast("Quiz result saved!", "success");
+    loadQuizHistory();
+  } catch (err) {
+    showToast("Failed to save quiz result.", "error");
+  }
+
   // Highlight correct and incorrect answers
   state.quizQuestions.forEach((question, index) => {
     const selectedChoice = answers[index];
@@ -147,11 +159,38 @@ async function loadPage() {
   try {
     await loadDocMeta();
     await loadQuiz();
+    await loadQuizHistory();
   } catch (err) {
     byId("loading-state").style.display = "none";
     showToast(err.message, "error");
     byId("doc-title").textContent = "Error";
     byId("doc-meta").textContent = err.message;
+  }
+}
+
+async function loadQuizHistory() {
+  const listEl = byId("quiz-history-list");
+  if (!docId || !listEl) return;
+  
+  try {
+    const res = await api(`/api/documents/${docId}/quiz/history`);
+    const history = res.history || [];
+    if (history.length === 0) {
+      listEl.innerHTML = '<div class="empty small" style="text-align: left;">No attempts yet.</div>';
+      return;
+    }
+    
+    listEl.innerHTML = history.map(item => `
+      <div style="padding: 10px; background: var(--bg-soft); border: 1px solid var(--line); border-radius: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+          <strong style="color: var(--ink);">${item.score} / ${item.total}</strong>
+          <span class="status ${item.percentage >= 80 ? 'success' : ''}">${item.percentage}%</span>
+        </div>
+        <div style="font-size: 0.75rem; color: var(--muted);">${new Date(item.created_at).toLocaleString()}</div>
+      </div>
+    `).join("");
+  } catch (err) {
+    listEl.innerHTML = '<div class="empty small error">Failed to load history</div>';
   }
 }
 
