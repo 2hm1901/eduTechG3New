@@ -236,6 +236,33 @@ Terraform state dùng remote backend S3, không commit file `terraform.tfstate` 
 
 Dev mới clone repo chỉ cần có AWS credentials đúng account rồi chạy `terraform init`; Terraform sẽ tự đọc state từ S3 nên `terraform plan` không tạo lại toàn bộ resource.
 
+### Update frontend lên S3 + CloudFront
+
+Chạy từ repo root sau khi sửa file trong `frontend/`:
+
+```bash
+aws s3 sync frontend/ s3://ai-study-buddy-frontend-894597652722 --delete
+aws cloudfront create-invalidation --distribution-id E1PYS7LV0BH3PN --paths "/*"
+```
+
+### Update Lambda code
+
+Ví dụ build lại Lambda `text_extraction`:
+
+```bash
+cd terraform/lambda_placeholder
+zip -r text_extraction.zip text_extraction.py
+cd ../..
+```
+
+Sau đó apply Terraform để đẩy zip mới lên Lambda:
+
+```bash
+cd terraform
+terraform apply
+cd ..
+```
+
 Nếu cần build lại từ đầu trên macOS/Linux:
 
 ```bash
