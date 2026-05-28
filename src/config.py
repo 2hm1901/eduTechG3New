@@ -23,6 +23,7 @@ class Config:
     # Storage
     storage_backend: str = _env("STORAGE_BACKEND", "local")
     storage_bucket: str = _env("STORAGE_BUCKET", "")
+    source_bucket_name: str = _env("SOURCE_BUCKET_NAME", "")
     storage_local_dir: str = _env("STORAGE_LOCAL_DIR", "./_data/uploads")
 
     # UserStore

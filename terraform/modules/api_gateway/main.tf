@@ -51,6 +51,30 @@ resource "aws_api_gateway_resource" "api_root" {
   path_part   = "api"
 }
 
+resource "aws_api_gateway_resource" "api_documents" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  parent_id   = aws_api_gateway_resource.api_root.id
+  path_part   = "documents"
+}
+
+resource "aws_api_gateway_resource" "api_document_id" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  parent_id   = aws_api_gateway_resource.api_documents.id
+  path_part   = "{doc_id}"
+}
+
+resource "aws_api_gateway_resource" "api_document_chat" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  parent_id   = aws_api_gateway_resource.api_document_id.id
+  path_part   = "chat"
+}
+
+resource "aws_api_gateway_resource" "api_document_chat_messages" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  parent_id   = aws_api_gateway_resource.api_document_chat.id
+  path_part   = "messages"
+}
+
 resource "aws_api_gateway_resource" "api_proxy" {
   rest_api_id = aws_api_gateway_rest_api.main.id
   parent_id   = aws_api_gateway_resource.api_root.id
@@ -111,6 +135,22 @@ resource "aws_api_gateway_method" "api_proxy" {
   authorizer_id = aws_api_gateway_authorizer.cognito.id
 }
 
+resource "aws_api_gateway_method" "api_document_chat_get" {
+  rest_api_id   = aws_api_gateway_rest_api.main.id
+  resource_id   = aws_api_gateway_resource.api_document_chat.id
+  http_method   = "GET"
+  authorization = "COGNITO_USER_POOLS"
+  authorizer_id = aws_api_gateway_authorizer.cognito.id
+}
+
+resource "aws_api_gateway_method" "api_document_chat_messages_post" {
+  rest_api_id   = aws_api_gateway_rest_api.main.id
+  resource_id   = aws_api_gateway_resource.api_document_chat_messages.id
+  http_method   = "POST"
+  authorization = "COGNITO_USER_POOLS"
+  authorizer_id = aws_api_gateway_authorizer.cognito.id
+}
+
 resource "aws_api_gateway_method" "health" {
   rest_api_id   = aws_api_gateway_rest_api.main.id
   resource_id   = aws_api_gateway_resource.health.id
@@ -133,6 +173,8 @@ resource "aws_api_gateway_method" "options" {
     summarize  = aws_api_gateway_resource.summarize.id
     quiz       = aws_api_gateway_resource.quiz.id
     dashboard  = aws_api_gateway_resource.dashboard.id
+    api_document_chat = aws_api_gateway_resource.api_document_chat.id
+    api_document_chat_messages = aws_api_gateway_resource.api_document_chat_messages.id
     api_proxy  = aws_api_gateway_resource.api_proxy.id
     health     = aws_api_gateway_resource.health.id
   }
@@ -248,6 +290,24 @@ resource "aws_api_gateway_integration" "api_proxy" {
   uri                     = local.api_backend_uri
 }
 
+resource "aws_api_gateway_integration" "api_document_chat_get" {
+  rest_api_id             = aws_api_gateway_rest_api.main.id
+  resource_id             = aws_api_gateway_resource.api_document_chat.id
+  http_method             = aws_api_gateway_method.api_document_chat_get.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = local.chat_uri
+}
+
+resource "aws_api_gateway_integration" "api_document_chat_messages_post" {
+  rest_api_id             = aws_api_gateway_rest_api.main.id
+  resource_id             = aws_api_gateway_resource.api_document_chat_messages.id
+  http_method             = aws_api_gateway_method.api_document_chat_messages_post.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = local.chat_uri
+}
+
 resource "aws_api_gateway_integration" "health" {
   rest_api_id             = aws_api_gateway_rest_api.main.id
   resource_id             = aws_api_gateway_resource.health.id
@@ -266,6 +326,8 @@ resource "aws_api_gateway_deployment" "main" {
     aws_api_gateway_integration.summarize,
     aws_api_gateway_integration.quiz,
     aws_api_gateway_integration.dashboard,
+    aws_api_gateway_integration.api_document_chat_get,
+    aws_api_gateway_integration.api_document_chat_messages_post,
     aws_api_gateway_integration.api_proxy,
     aws_api_gateway_integration.health,
     aws_api_gateway_integration.options,
@@ -279,6 +341,10 @@ resource "aws_api_gateway_deployment" "main" {
       aws_api_gateway_resource.summarize.id,
       aws_api_gateway_resource.quiz.id,
       aws_api_gateway_resource.dashboard.id,
+      aws_api_gateway_resource.api_documents.id,
+      aws_api_gateway_resource.api_document_id.id,
+      aws_api_gateway_resource.api_document_chat.id,
+      aws_api_gateway_resource.api_document_chat_messages.id,
       aws_api_gateway_resource.api_proxy.id,
       aws_api_gateway_resource.health.id,
       aws_api_gateway_method.upload_pdf.id,
@@ -286,6 +352,8 @@ resource "aws_api_gateway_deployment" "main" {
       aws_api_gateway_method.summarize.id,
       aws_api_gateway_method.quiz.id,
       aws_api_gateway_method.dashboard.id,
+      aws_api_gateway_method.api_document_chat_get.id,
+      aws_api_gateway_method.api_document_chat_messages_post.id,
       aws_api_gateway_method.api_proxy.id,
       aws_api_gateway_method.health.id,
       aws_api_gateway_method.options["upload_pdf"].id,
@@ -293,6 +361,8 @@ resource "aws_api_gateway_deployment" "main" {
       aws_api_gateway_method.options["summarize"].id,
       aws_api_gateway_method.options["quiz"].id,
       aws_api_gateway_method.options["dashboard"].id,
+      aws_api_gateway_method.options["api_document_chat"].id,
+      aws_api_gateway_method.options["api_document_chat_messages"].id,
       aws_api_gateway_method.options["api_proxy"].id,
       aws_api_gateway_method.options["health"].id,
     ]))

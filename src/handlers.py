@@ -4,6 +4,7 @@ import json
 import re
 import uuid
 from collections import Counter
+from urllib.parse import urlparse
 
 
 PROMPT_TEMPLATE = """You are a study assistant. Answer the student's question using ONLY the
@@ -116,16 +117,59 @@ DOCUMENT CONTENT:
 
 FIVE STUDY TOPICS:"""
 
-DOC_CHAT_PROMPT = """You are a study assistant helping a student understand a specific document.
+DOC_CHAT_SYSTEM_PROMPT = """You are a study assistant helping a student understand a specific document.
 
-Use the document context below to answer the student's question. Stay grounded in the source material. If the context does not contain the answer, say so plainly.
+Rules:
+- Answer ONLY from the provided document context.
+- Use prior conversation only to resolve references like "that", "this", or follow-up wording.
+- If the document context does not contain the answer, say so plainly.
+- Do not use outside knowledge.
+- Do not invent details."""
+
+DOC_CHAT_PROMPT = """THREAD MEMORY:
+{memory_summary}
 
 DOCUMENT CONTEXT:
 {context}
 
-QUESTION: {question}
+CURRENT QUESTION:
+{question}
 
 ANSWER:"""
+
+DOC_CHAT_MEMORY_PROMPT = """You are updating compact memory for a document study chat.
+
+Summarize the conversation below into a short factual memory for future turns.
+
+RULES:
+- Keep it under 120 words
+- Capture only stable context, user intent, and established points
+- Do not add facts that were not stated in the chat
+- Do not add facts from outside knowledge
+
+EXISTING MEMORY:
+{existing_memory}
+
+CONVERSATION:
+{conversation}
+
+UPDATED MEMORY:"""
+
+DOC_CHAT_REWRITE_SYSTEM_PROMPT = "You rewrite follow-up questions into standalone questions. Output only the rewritten question."
+
+DOC_CHAT_REWRITE_PROMPT = """Given the conversation history and a follow-up question, rewrite the follow-up as a fully standalone question.
+
+Rules:
+- Replace pronouns and references like it, they, this, that, these, those with the explicit concept from history.
+- Preserve the user's original intent.
+- If the question is already standalone, return it unchanged.
+- Return only the standalone question.
+
+Conversation history:
+{history}
+
+Follow-up question: {question}
+Standalone question:"""
 
 STOPWORDS = {
     "about", "after", "again", "against", "also", "because", "before", "being", "between", "could",
@@ -269,11 +313,50 @@ def _get_doc_text(user_id: str, doc_id: str, vector_store) -> str:
     return ""
 
 
+def _build_source_text_key_from_location(location: str) -> str:
+    parsed = urlparse(location or "")
+    if parsed.scheme != "s3" or not parsed.path:
+        return ""
+    source_key = parsed.path.lstrip("/")
+    base = re.sub(r"[^A-Za-z0-9._/-]", "_", source_key.rsplit(".", 1)[0])
+    return f"source/{base}.txt"
+
+
+def _load_source_text(document: dict | None) -> str:
+    if not document:
+        return ""
+    source_key = _build_source_text_key_from_location(document.get("location", ""))
+    if not source_key:
+        return ""
+    try:
+        import boto3
+        from src.config import config
+
+        if not config.source_bucket_name:
+            return ""
+        s3 = boto3.client("s3", region_name=config.aws_region)
+        obj = s3.get_object(Bucket=config.source_bucket_name, Key=source_key)
+        return obj["Body"].read().decode("utf-8", errors="replace")
+    except Exception:
+        return ""
+
+
+def _get_doc_text_with_fallback(user_id: str, doc_id: str, vector_store, userstore) -> str:
+    text = _get_doc_text(user_id, doc_id, vector_store)
+    if text.strip():
+        return text
+    if hasattr(userstore, "get_document"):
+        fallback_text = _load_source_text(userstore.get_document(user_id, doc_id))
+        if fallback_text.strip():
+            return fallback_text
+    return ""
+
+
 def _get_folder_doc_texts(user_id: str, folder_id: str, userstore, vector_store) -> list[dict]:
     docs = userstore.get_folder_docs(user_id, folder_id)
     results = []
     for doc in docs:
-        text = _get_doc_text(user_id, doc["doc_id"], vector_store)
+        text = _get_doc_text_with_fallback(user_id, doc["doc_id"], vector_store, userstore)
         if text:
             results.append({"doc_id": doc["doc_id"], "filename": doc["filename"], "text": text})
     return results
@@ -534,7 +617,7 @@ def handle_topic_quiz(user_id: str, topic_id: str, question_count: int, ai_clien
     docs = userstore.get_topic_source_docs(user_id, topic_id)
     doc_texts = []
     for doc in docs:
-        text = _get_doc_text(user_id, doc["doc_id"], vector_store)
+        text = _get_doc_text_with_fallback(user_id, doc["doc_id"], vector_store, userstore)
         if text:
             doc_texts.append(text)
     content = f"Topic: {topic['title']}\nSummary: {topic['summary']}\n\n" + "\n\n".join(doc_texts[:3])
@@ -600,13 +683,101 @@ def _fallback_doc_topics(doc_id: str, text: str) -> list[dict]:
     return _fallback_topics([{"doc_id": doc_id, "text": text}], count=5)
 
 
+def _format_recent_chat(messages: list[dict], limit: int = 6) -> str:
+    recent = messages[-limit:]
+    if not recent:
+        return "No prior conversation."
+    lines = []
+    for message in recent:
+        role = "User" if message.get("role") == "user" else "Assistant"
+        lines.append(f"{role}: {message.get('content', '').strip()}")
+    return "\n".join(lines)
+
+
+def _build_doc_chat_citations(chunks: list[dict]) -> list[dict]:
+    citations = []
+    for index, chunk in enumerate(chunks, start=1):
+        metadata = chunk.get("metadata", {}) or {}
+        chunk_id = metadata.get("chunk_id") or metadata.get("chunk_idx") or f"chunk-{index}"
+        citations.append(
+            {
+                "doc_id": chunk.get("doc_id", ""),
+                "chunk_id": str(chunk_id),
+                "excerpt": _summarize_text(chunk.get("text", ""), max_chars=320),
+            }
+        )
+    return citations
+
+
+def _should_refresh_doc_memory(message_count: int, has_memory: bool) -> bool:
+    if message_count < 20:
+        return False
+    if not has_memory:
+        return True
+    return (message_count - 20) % 6 == 0
+
+
+def _fallback_memory_summary(messages: list[dict]) -> str:
+    if not messages:
+        return ""
+    recent = messages[-6:]
+    snippets = []
+    for message in recent:
+        role = "User" if message.get("role") == "user" else "Assistant"
+        snippets.append(f"{role}: {_summarize_text(message.get('content', ''), max_chars=120)}")
+    return " | ".join(snippets)
+
+
+def _update_doc_chat_memory(user_id: str, doc_id: str, messages: list[dict], session: dict, ai_client, userstore) -> dict | None:
+    if not hasattr(userstore, "update_document_chat_session"):
+        return session
+    if not _should_refresh_doc_memory(len(messages), bool(session.get("memory_summary"))):
+        return session
+    conversation = _format_recent_chat(messages, limit=min(12, len(messages)))
+    try:
+        memory_summary = ai_client.invoke(
+            DOC_CHAT_MEMORY_PROMPT.format(
+                existing_memory=session.get("memory_summary") or "None.",
+                conversation=conversation,
+            ),
+            max_tokens=180,
+        ).strip()
+    except Exception:
+        memory_summary = _fallback_memory_summary(messages)
+    updated = userstore.update_document_chat_session(user_id, doc_id, memory_summary=memory_summary, message_count=len(messages))
+    return updated or session
+
+
+def _reformulate_doc_chat_query(question: str, messages: list[dict], ai_client) -> str:
+    if not messages:
+        return question
+    history = _format_recent_chat(messages, limit=6)
+    try:
+        if hasattr(ai_client, "converse"):
+            rewritten = ai_client.converse(
+                DOC_CHAT_REWRITE_SYSTEM_PROMPT,
+                DOC_CHAT_REWRITE_PROMPT.format(history=history, question=question),
+                max_tokens=120,
+                temperature=0,
+            ).strip()
+        else:
+            rewritten = ai_client.invoke(
+                DOC_CHAT_REWRITE_PROMPT.format(history=history, question=question),
+                max_tokens=120,
+                temperature=0,
+            ).strip()
+        return rewritten or question
+    except Exception:
+        return question
+
+
 def handle_doc_summary(user_id: str, doc_id: str, ai_client, vector_store, userstore) -> dict:
     document = userstore.get_document(user_id, doc_id) if hasattr(userstore, "get_document") else None
     cached_summary = (document or {}).get("doc_summary")
     if cached_summary and not _is_verbose_summary(cached_summary):
         return {"doc_id": doc_id, "summary": cached_summary, "cached": True}
 
-    text = _get_doc_text(user_id, doc_id, vector_store)
+    text = _get_doc_text_with_fallback(user_id, doc_id, vector_store, userstore)
     if not text.strip():
         return {"error": "No content found for this document. It may still be processing."}
     content = text[:15000]
@@ -619,8 +790,8 @@ def handle_doc_summary(user_id: str, doc_id: str, ai_client, vector_store, users
     return {"doc_id": doc_id, "summary": summary, "cached": False}
 
 
-def handle_doc_testable_concepts(user_id: str, doc_id: str, ai_client, vector_store) -> dict:
-    text = _get_doc_text(user_id, doc_id, vector_store)
+def handle_doc_testable_concepts(user_id: str, doc_id: str, ai_client, vector_store, userstore) -> dict:
+    text = _get_doc_text_with_fallback(user_id, doc_id, vector_store, userstore)
     if not text.strip():
         return {"error": "No content found for this document. It may still be processing."}
     content = text[:15000]
@@ -670,18 +841,73 @@ def handle_doc_topics(user_id: str, doc_id: str, ai_client, vector_store, userst
     return {"doc_id": doc_id, "topics": topics, "cached": False}
 
 
-def handle_doc_chat(user_id: str, doc_id: str, message: str, ai_client, vector_store) -> dict:
-    chunks = vector_store.search(message, top_k=5, filter={"doc_id": doc_id})
-    citations = [
-        {"chunk": i + 1, "doc_id": chunk["doc_id"], "score": chunk["score"], "text": chunk["text"][:200]}
-        for i, chunk in enumerate(chunks)
-    ]
-    context = "\n\n".join(f"[chunk {i + 1}] {chunk['text']}" for i, chunk in enumerate(chunks))
-    if not context:
-        answer = "No relevant content found in this document yet."
+def handle_get_document_chat(user_id: str, doc_id: str, userstore) -> dict:
+    document = userstore.get_document(user_id, doc_id) if hasattr(userstore, "get_document") else None
+    if not document:
+        return {"error": "Document not found"}
+    session = userstore.get_or_create_document_chat_session(user_id, doc_id, title=document.get("filename", "Document chat"))
+    messages = userstore.list_document_chat_messages(user_id, doc_id)
+    if hasattr(userstore, "update_document_chat_session"):
+        session = userstore.update_document_chat_session(user_id, doc_id, message_count=len(messages)) or session
+    return {"session": session, "messages": messages}
+
+
+def handle_document_chat_message(user_id: str, doc_id: str, message: str, ai_client, vector_store, userstore) -> dict:
+    document = userstore.get_document(user_id, doc_id) if hasattr(userstore, "get_document") else None
+    if not document:
+        return {"error": "Document not found"}
+
+    session = userstore.get_or_create_document_chat_session(user_id, doc_id, title=document.get("filename", "Document chat"))
+    existing_messages = userstore.list_document_chat_messages(user_id, doc_id)
+    user_message = userstore.add_document_chat_message(user_id, doc_id, "user", message)
+
+    effective_query = _reformulate_doc_chat_query(message, existing_messages, ai_client)
+    chunks = vector_store.search(effective_query, top_k=5, filter={"doc_id": doc_id})
+    citations = _build_doc_chat_citations(chunks)
+    context = "\n\n".join(f"[chunk {index}] {chunk['text']}" for index, chunk in enumerate(chunks, start=1))
+
+    if not context.strip():
+        answer = "I can't answer that from this document because I couldn't find supporting content."
+        citations = []
     else:
         try:
-            answer = ai_client.invoke(DOC_CHAT_PROMPT.format(context=context, question=message), max_tokens=512)
+            if hasattr(ai_client, "converse"):
+                answer = ai_client.converse(
+                    DOC_CHAT_SYSTEM_PROMPT,
+                    DOC_CHAT_PROMPT.format(
+                        memory_summary=session.get("memory_summary") or "None.",
+                        context=context,
+                        question=message,
+                    ),
+                    prior_messages=existing_messages[-6:],
+                    max_tokens=512,
+                    temperature=0.2,
+                )
+            else:
+                answer = ai_client.invoke(
+                    DOC_CHAT_PROMPT.format(
+                        memory_summary=session.get("memory_summary") or "None.",
+                        context=context,
+                        question=message,
+                    ),
+                    max_tokens=512,
+                )
         except Exception:
             answer = "AI is currently unavailable. Please try again later."
-    return {"answer": answer, "citations": citations}
+
+    assistant_message = userstore.add_document_chat_message(
+        user_id,
+        doc_id,
+        "assistant",
+        answer,
+        citations=citations,
+    )
+    all_messages = existing_messages + [user_message, assistant_message]
+    updated_session = _update_doc_chat_memory(user_id, doc_id, all_messages, session, ai_client, userstore) or session
+    if hasattr(userstore, "update_document_chat_session"):
+        updated_session = userstore.update_document_chat_session(user_id, doc_id, message_count=len(all_messages)) or updated_session
+    return {
+        "session": updated_session,
+        "user_message": user_message,
+        "assistant_message": assistant_message,
+    }

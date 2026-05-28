@@ -28,6 +28,7 @@ class SQLiteUserStore:
         schema_path = Path(__file__).resolve().parents[2] / "migrations" / "001_core_schema.sql"
         self.conn.executescript(schema_path.read_text(encoding="utf-8"))
         self._ensure_document_analysis_columns()
+        self._ensure_document_chat_tables()
         self.conn.commit()
 
     def _table_columns(self, table: str) -> list[str]:
@@ -48,6 +49,46 @@ class SQLiteUserStore:
         for column, statement in additions.items():
             if column not in columns:
                 self.conn.execute(statement)
+
+    def _ensure_document_chat_tables(self) -> None:
+        self.conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS document_chat_sessions (
+              session_id TEXT PRIMARY KEY,
+              user_id TEXT NOT NULL,
+              doc_id TEXT NOT NULL,
+              title TEXT,
+              memory_summary TEXT,
+              message_count INTEGER NOT NULL DEFAULT 0,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL,
+              memory_summary_updated_at TEXT,
+              UNIQUE(user_id, doc_id),
+              FOREIGN KEY (user_id) REFERENCES users(user_id),
+              FOREIGN KEY (doc_id) REFERENCES documents(doc_id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_document_chat_sessions_user_doc
+            ON document_chat_sessions(user_id, doc_id);
+
+            CREATE TABLE IF NOT EXISTS document_chat_messages (
+              message_id TEXT PRIMARY KEY,
+              session_id TEXT NOT NULL,
+              user_id TEXT NOT NULL,
+              doc_id TEXT NOT NULL,
+              role TEXT NOT NULL,
+              content TEXT NOT NULL,
+              citations_json TEXT,
+              created_at TEXT NOT NULL,
+              FOREIGN KEY (session_id) REFERENCES document_chat_sessions(session_id),
+              FOREIGN KEY (user_id) REFERENCES users(user_id),
+              FOREIGN KEY (doc_id) REFERENCES documents(doc_id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_document_chat_messages_session_created
+            ON document_chat_messages(session_id, created_at ASC);
+            """
+        )
 
     def _assert_supported_schema(self) -> None:
         user_columns = self._table_columns("users")
@@ -262,6 +303,127 @@ class SQLiteUserStore:
         )
         self.conn.commit()
         return self.get_document(user_id, doc_id)
+
+    def get_or_create_document_chat_session(self, user_id: str, doc_id: str, title: str | None = None) -> dict:
+        existing = self.get_document_chat_session(user_id, doc_id)
+        if existing:
+            return existing
+        document = self.get_document(user_id, doc_id)
+        if not document:
+            raise ValueError("Document not found")
+        self._ensure_user(user_id)
+        session_id = str(uuid.uuid4())
+        now = _now()
+        self.conn.execute(
+            "INSERT INTO document_chat_sessions (session_id, user_id, doc_id, title, memory_summary, message_count, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, '', 0, ?, ?)",
+            (session_id, user_id, doc_id, title or "Document chat", now, now),
+        )
+        self.conn.commit()
+        return self.get_document_chat_session(user_id, doc_id)
+
+    def get_document_chat_session(self, user_id: str, doc_id: str) -> dict | None:
+        row = self.conn.execute(
+            "SELECT * FROM document_chat_sessions WHERE user_id = ? AND doc_id = ?",
+            (user_id, doc_id),
+        ).fetchone()
+        if not row:
+            return None
+        return {
+            "session_id": row["session_id"],
+            "user_id": row["user_id"],
+            "doc_id": row["doc_id"],
+            "title": row["title"] or "Document chat",
+            "memory_summary": row["memory_summary"] or "",
+            "message_count": row["message_count"] or 0,
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+            "memory_summary_updated_at": row["memory_summary_updated_at"],
+        }
+
+    def update_document_chat_session(
+        self,
+        user_id: str,
+        doc_id: str,
+        *,
+        message_count: int | None = None,
+        memory_summary: str | None = None,
+        title: str | None = None,
+    ) -> dict | None:
+        session = self.get_document_chat_session(user_id, doc_id)
+        if not session:
+            return None
+
+        fields = ["updated_at = ?"]
+        values = [_now()]
+        if message_count is not None:
+            fields.append("message_count = ?")
+            values.append(int(message_count))
+        if memory_summary is not None:
+            fields.append("memory_summary = ?")
+            fields.append("memory_summary_updated_at = ?")
+            values.extend([memory_summary, values[0]])
+        if title is not None:
+            fields.append("title = ?")
+            values.append(title)
+        values.extend([user_id, doc_id])
+        self.conn.execute(
+            f"UPDATE document_chat_sessions SET {', '.join(fields)} WHERE user_id = ? AND doc_id = ?",
+            values,
+        )
+        self.conn.commit()
+        return self.get_document_chat_session(user_id, doc_id)
+
+    def add_document_chat_message(
+        self,
+        user_id: str,
+        doc_id: str,
+        role: str,
+        content: str,
+        citations: list[dict] | None = None,
+    ) -> dict:
+        session = self.get_or_create_document_chat_session(user_id, doc_id)
+        message_id = str(uuid.uuid4())
+        now = _now()
+        self.conn.execute(
+            "INSERT INTO document_chat_messages (message_id, session_id, user_id, doc_id, role, content, citations_json, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (message_id, session["session_id"], user_id, doc_id, role, content, json.dumps(citations or []), now),
+        )
+        message_count = int(session.get("message_count", 0)) + 1
+        title = content[:60] if role == "user" and message_count == 1 else None
+        self.update_document_chat_session(user_id, doc_id, message_count=message_count, title=title)
+        self.conn.commit()
+        return {
+            "message_id": message_id,
+            "session_id": session["session_id"],
+            "doc_id": doc_id,
+            "role": role,
+            "content": content,
+            "citations": citations or [],
+            "created_at": now,
+        }
+
+    def list_document_chat_messages(self, user_id: str, doc_id: str) -> list[dict]:
+        session = self.get_document_chat_session(user_id, doc_id)
+        if not session:
+            return []
+        rows = self.conn.execute(
+            "SELECT * FROM document_chat_messages WHERE session_id = ? ORDER BY created_at ASC",
+            (session["session_id"],),
+        ).fetchall()
+        return [
+            {
+                "message_id": row["message_id"],
+                "session_id": row["session_id"],
+                "doc_id": row["doc_id"],
+                "role": row["role"],
+                "content": row["content"],
+                "citations": json.loads(row["citations_json"] or "[]"),
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
 
     # ---- Folders ----
     def create_folder(self, user_id: str, name: str) -> dict:

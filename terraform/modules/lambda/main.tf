@@ -126,7 +126,7 @@ resource "aws_iam_role_policy" "chat" {
       },
       {
         Effect   = "Allow"
-        Action   = ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:Query"]
+        Action   = ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:Query", "dynamodb:UpdateItem"]
         Resource = "arn:aws:dynamodb:${var.region}:*:table/${var.dynamodb_table_name}"
       },
       {
@@ -242,6 +242,11 @@ resource "aws_iam_role_policy" "api_backend" {
         Effect   = "Allow"
         Action   = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]
         Resource = "${var.pdf_bucket_arn}/*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["s3:GetObject"]
+        Resource = "${var.source_bucket_arn}/*"
       },
       {
         Effect   = "Allow"
@@ -433,6 +438,7 @@ resource "aws_lambda_function" "api_backend" {
       APP_REGION                    = var.region
       STORAGE_BACKEND               = "s3"
       STORAGE_BUCKET                = var.pdf_bucket_name
+      SOURCE_BUCKET_NAME            = var.source_bucket_name
       USERSTORE_BACKEND             = "dynamodb"
       USERSTORE_TABLE               = var.dynamodb_table_name
       VECTOR_BACKEND                = "bedrock_kb"
