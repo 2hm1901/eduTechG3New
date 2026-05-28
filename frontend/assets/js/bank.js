@@ -19,7 +19,7 @@ function renderDocs() {
   host.innerHTML = state.docs
     .map((doc) => {
       return `
-        <a class="doc-row doc-row-clickable" href="/doc/${doc.doc_id}">
+        <a class="doc-row doc-row-clickable" href="/pages/doc-workspace.html?doc=${encodeURIComponent(doc.doc_id)}">
           <div class="doc-row-main">
             <h4>${escapeHtml(doc.filename)}</h4>
             <div class="muted small mono">${escapeHtml(doc.doc_id.slice(0, 8))}</div>
