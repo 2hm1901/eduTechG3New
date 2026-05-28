@@ -131,7 +131,8 @@
     </main>
   </div>
 
-  <div class="auth-overlay open" id="auth-overlay">
+  <div class="auth-overlay" id="auth-overlay">
+  <script>if(!localStorage.getItem("sb_user"))document.getElementById("auth-overlay").classList.add("open");</script>
     <div class="auth-box">
       <h2>StudyBot Sign In</h2>
       <p class="muted">Same account as Bank.</p>
