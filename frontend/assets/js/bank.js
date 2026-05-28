@@ -26,6 +26,7 @@ function renderDocs() {
           </div>
           <div class="doc-actions">
             <a class="chip" href="/pages/doc-workspace.html?doc=${encodeURIComponent(doc.doc_id)}">Open →</a>
+            <a class="chip" href="/pages/folder-dashboard.html">Dashboard</a>
             <button class="chip" type="button" data-action="delete" data-doc-id="${escapeHtml(doc.doc_id)}">Delete</button>
           </div>
         </div>
