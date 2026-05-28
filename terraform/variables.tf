@@ -58,12 +58,12 @@ variable "pdf_cors_allowed_origin" {
 
 variable "bedrock_model_arn" {
   type    = string
-  default = "arn:aws:bedrock:ap-southeast-2::foundation-model/anthropic.claude-3-5-haiku-20241022-v1:0"
+  default = "arn:aws:bedrock:ap-southeast-2::foundation-model/amazon.nova-2-lite-v1:0"
 }
 
 variable "bedrock_model_id" {
   type    = string
-  default = "anthropic.claude-3-5-haiku-20241022-v1:0"
+  default = "amazon.nova-2-lite-v1:0"
 }
 
 variable "bedrock_embedding_model_arn" {

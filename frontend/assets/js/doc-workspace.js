@@ -18,6 +18,7 @@ const state = {
   doc: null,
   summary: null,
   concepts: null,
+  topics: [],
   chatMessages: [],
 };
 
@@ -62,6 +63,42 @@ function renderConceptsBubble(concepts) {
         <strong class="bubble-label">Five Most Testable Concepts</strong>
       </div>
       <div class="bubble-body concepts-grid">${conceptCards}</div>
+    </article>
+  `;
+}
+
+function renderTopicsBubble(topics) {
+  if (!topics?.length) {
+    return `
+      <article class="chat-bubble assistant concepts-bubble">
+        <div class="bubble-header">
+          <span class="bubble-icon">📚</span>
+          <strong class="bubble-label">Five Study Topics</strong>
+        </div>
+        <div class="bubble-body"><p class="muted">Topics are being generated...</p></div>
+      </article>
+    `;
+  }
+  const topicCards = topics
+    .map(
+      (topic) => `
+        <div class="concept-card">
+          <div class="concept-header">
+            <span class="concept-number">${topic.position || ""}</span>
+            <strong>${escapeHtml(topic.title || "Untitled topic")}</strong>
+          </div>
+          <p class="concept-why">${escapeHtml(topic.summary || "")}</p>
+        </div>
+      `
+    )
+    .join("");
+  return `
+    <article class="chat-bubble assistant concepts-bubble">
+      <div class="bubble-header">
+        <span class="bubble-icon">📚</span>
+        <strong class="bubble-label">Five Study Topics</strong>
+      </div>
+      <div class="bubble-body concepts-grid">${topicCards}</div>
     </article>
   `;
 }
@@ -116,6 +153,7 @@ function renderChat() {
   if (state.concepts) {
     html += renderConceptsBubble(state.concepts);
   }
+  html += renderTopicsBubble(state.topics);
 
   for (const msg of state.chatMessages) {
     if (msg.role === "user") {
@@ -170,6 +208,15 @@ async function loadConcepts() {
   }
 }
 
+async function loadTopics() {
+  try {
+    const result = await api(`/api/documents/${docId}/topics`);
+    state.topics = result.topics || [];
+  } catch (_err) {
+    state.topics = [];
+  }
+}
+
 async function loadPage() {
   // Show loading state
   byId("loading-state").style.display = "grid";
@@ -183,6 +230,7 @@ async function loadPage() {
     renderChat();
 
     await loadConcepts();
+    await loadTopics();
     renderChat();
   } catch (err) {
     byId("loading-state").style.display = "none";

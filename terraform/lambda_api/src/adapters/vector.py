@@ -50,9 +50,11 @@ class BedrockKBVector:
             },
         }
         if filter:
-            kwargs["retrievalConfiguration"]["vectorSearchConfiguration"]["filter"] = {
-                "andAll": [{"equals": {"key": k, "value": v}} for k, v in filter.items()]
-            }
+            clauses = [{"equals": {"key": k, "value": v}} for k, v in filter.items()]
+            if len(clauses) == 1:
+                kwargs["retrievalConfiguration"]["vectorSearchConfiguration"]["filter"] = clauses[0]
+            else:
+                kwargs["retrievalConfiguration"]["vectorSearchConfiguration"]["filter"] = {"andAll": clauses}
         resp = self.agent_runtime.retrieve(**kwargs)
         return [
             {

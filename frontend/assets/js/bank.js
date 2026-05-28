@@ -19,15 +19,16 @@ function renderDocs() {
   host.innerHTML = state.docs
     .map((doc) => {
       return `
-        <a class="doc-row doc-row-clickable" href="/pages/doc-workspace.html?doc=${encodeURIComponent(doc.doc_id)}">
+        <div class="doc-row doc-row-clickable" data-doc-id="${escapeHtml(doc.doc_id)}">
           <div class="doc-row-main">
             <h4>${escapeHtml(doc.filename)}</h4>
             <div class="muted small mono">${escapeHtml(doc.doc_id.slice(0, 8))}</div>
           </div>
           <div class="doc-actions">
-            <span class="chip">Open →</span>
+            <a class="chip" href="/pages/doc-workspace.html?doc=${encodeURIComponent(doc.doc_id)}">Open →</a>
+            <button class="chip" type="button" data-action="delete" data-doc-id="${escapeHtml(doc.doc_id)}">Delete</button>
           </div>
-        </a>
+        </div>
       `;
     })
     .join("");
@@ -118,6 +119,23 @@ function bindEvents() {
     const [file] = event.dataTransfer.files;
     if (file) {
       handleUpload(file);
+    }
+  });
+
+  byId("docs-list").addEventListener("click", async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const button = target.closest('[data-action="delete"]');
+    if (!button) return;
+    const docId = button.getAttribute("data-doc-id");
+    if (!docId) return;
+    if (!window.confirm("Delete this document?")) return;
+    try {
+      await api(`/api/bank/documents/${encodeURIComponent(docId)}`, { method: "DELETE" });
+      showToast("Document deleted", "success");
+      await loadBank();
+    } catch (error) {
+      showToast(error.message, "error");
     }
   });
 }

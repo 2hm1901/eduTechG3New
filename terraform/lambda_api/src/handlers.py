@@ -1,6 +1,7 @@
 """Endpoint handlers for the Bank -> Folder workspace flow."""
 import io
 import json
+import logging
 import re
 import uuid
 from collections import Counter
@@ -18,7 +19,7 @@ QUESTION: {question}
 
 ANSWER:"""
 
-TOPIC_PROMPT_TEMPLATE = """You are a study assistant. Read the folder content and generate exactly 5 study topics.
+TOPIC_PROMPT_TEMPLATE = """You are a study assistant. Read the document content and generate exactly 5 study topics.
 
 Return raw JSON only, no markdown:
 [
@@ -28,7 +29,7 @@ Return raw JSON only, no markdown:
   }}
 ]
 
-FOLDER CONTENT:
+DOCUMENT CONTENT:
 {content}
 """
 
@@ -117,6 +118,8 @@ STOPWORDS = {
     "your", "this", "that", "they", "them", "then", "than", "such", "over", "while", "slide",
     "slides", "topic", "topics", "study", "students", "student", "content", "document",
 }
+
+logger = logging.getLogger(__name__)
 
 
 def _extract_text(filename: str, data: bytes) -> str:
@@ -262,6 +265,26 @@ def _get_folder_doc_texts(user_id: str, folder_id: str, userstore, vector_store)
     return results
 
 
+def _generate_topics_from_doc_texts(doc_texts: list[dict], ai_client) -> tuple[list[dict], str]:
+    if not doc_texts:
+        return [], ""
+    combined = "\n\n".join(f"[DOC {doc['doc_id']}] {doc['text']}" for doc in doc_texts)[:15000]
+    logger.info("Generating topics via AI for %d docs", len(doc_texts))
+    raw = ai_client.invoke(TOPIC_PROMPT_TEMPLATE.format(content=combined), max_tokens=1024)
+    parsed = _parse_json_array(raw)
+    topics = [
+        {
+            "title": item.get("title", f"Topic {index}"),
+            "summary": item.get("summary", "Study guide topic"),
+            "source_doc_ids": [doc["doc_id"] for doc in doc_texts],
+        }
+        for index, item in enumerate(parsed[:5], start=1)
+    ]
+    if not topics:
+        raise ValueError("Model returned empty topics JSON")
+    return topics, raw
+
+
 def handle_upload(user_id: str, filename: str, data: bytes, storage, userstore, vector_store) -> dict:
     doc_id = str(uuid.uuid4())
     key = f"{user_id}/{doc_id}/{filename}"
@@ -302,17 +325,14 @@ def handle_presign(user_id: str, filename: str, content_type: str, storage) -> d
     }
 
 
-def handle_finalize(user_id: str, doc_id: str, filename: str, key: str, size: int, storage, userstore, vector_store) -> dict:
+def handle_finalize(user_id: str, doc_id: str, filename: str, key: str, size: int, storage, userstore, vector_store, ai_client=None) -> dict:
     if hasattr(storage, "bucket"):
         location = f"s3://{storage.bucket}/{key}"
     else:
         location = f"file://{storage.base.resolve()}/{key}"
 
-    data = storage.get(key)
-    text = _extract_text(filename, data)
-
-    if text.strip():
-        vector_store.ingest(doc_id=doc_id, text=text, metadata={"user_id": user_id, "filename": filename})
+    # Do not parse PDF in api_backend Lambda. Extraction/sync is handled by
+    # text_extraction Lambda -> source S3 -> Bedrock KB ingestion pipeline.
     userstore.add_doc(
         user_id=user_id,
         doc_id=doc_id,
@@ -320,16 +340,18 @@ def handle_finalize(user_id: str, doc_id: str, filename: str, key: str, size: in
             "filename": filename,
             "size": size,
             "location": location,
-            "chars": len(text),
+            "chars": 0,
             "mime_type": "",
         },
     )
+    topics_status = "processing"
     return {
         "doc_id": doc_id,
         "filename": filename,
         "size": size,
-        "chars_extracted": len(text),
+        "chars_extracted": 0,
         "location": location,
+        "topics_status": topics_status,
     }
 
 
@@ -341,6 +363,37 @@ def handle_direct_upload(key: str, data: bytes, storage) -> dict:
 
 def handle_list_docs(user_id: str, userstore) -> dict:
     return {"user_id": user_id, "docs": userstore.list_docs(user_id)}
+
+
+def _extract_storage_key(location: str) -> str:
+    if not location:
+        return ""
+    if location.startswith("s3://"):
+        parts = location.split("/", 3)
+        return parts[3] if len(parts) > 3 else ""
+    if location.startswith("file://"):
+        return location.split("file://", 1)[1]
+    return location
+
+
+def handle_delete_doc(user_id: str, doc_id: str, storage, userstore) -> dict:
+    getter = getattr(userstore, "get_document", None)
+    doc = getter(user_id, doc_id) if getter else None
+
+    if doc:
+        key = _extract_storage_key(doc.get("location", ""))
+        if hasattr(storage, "bucket"):
+            if key:
+                storage.delete(key)
+        else:
+            # local storage key may already be absolute path
+            if key and not key.startswith("\\") and ":/" not in key:
+                storage.delete(key)
+
+    deleter = getattr(userstore, "delete_document", None)
+    if deleter:
+        deleter(user_id, doc_id)
+    return {"status": "deleted", "doc_id": doc_id}
 
 
 def handle_register(username: str, password: str, userstore) -> dict:
@@ -403,22 +456,7 @@ def handle_generate_topics(user_id: str, folder_id: str, ai_client, userstore, v
         doc_texts = _get_folder_doc_texts(user_id, folder_id, userstore, vector_store)
         if not doc_texts:
             return {"error": "Folder has no retrievable content yet."}
-        combined = "\n\n".join(f"[DOC {doc['doc_id']}] {doc['text']}" for doc in doc_texts)[:15000]
-        raw = ai_client.invoke(TOPIC_PROMPT_TEMPLATE.format(content=combined), max_tokens=1024)
-        try:
-            parsed = _parse_json_array(raw)
-            topics = [
-                {
-                    "title": item.get("title", f"Topic {index}"),
-                    "summary": item.get("summary", "Study guide topic"),
-                    "source_doc_ids": [doc["doc_id"] for doc in doc_texts],
-                }
-                for index, item in enumerate(parsed[:5], start=1)
-            ]
-            if not topics:
-                raise ValueError("No topics")
-        except Exception:
-            topics = _fallback_topics(doc_texts, count=5)
+        topics, raw = _generate_topics_from_doc_texts(doc_texts, ai_client)
         return {"topics": userstore.replace_folder_topics(user_id, folder_id, topics), "raw": raw}
     except ValueError as exc:
         return {"error": str(exc)}
@@ -574,10 +612,8 @@ def handle_doc_summary(user_id: str, doc_id: str, ai_client, vector_store) -> di
     if not text.strip():
         return {"error": "No content found for this document. It may still be processing."}
     content = text[:15000]
-    try:
-        summary = ai_client.invoke(DOC_SUMMARY_PROMPT.format(content=content), max_tokens=1024)
-    except Exception:
-        summary = _fallback_summary(text)
+    logger.info("Generating summary via AI for doc_id=%s", doc_id)
+    summary = ai_client.invoke(DOC_SUMMARY_PROMPT.format(content=content), max_tokens=1024)
     return {"doc_id": doc_id, "summary": summary}
 
 
@@ -586,13 +622,11 @@ def handle_doc_testable_concepts(user_id: str, doc_id: str, ai_client, vector_st
     if not text.strip():
         return {"error": "No content found for this document. It may still be processing."}
     content = text[:15000]
-    try:
-        raw = ai_client.invoke(DOC_TESTABLE_CONCEPTS_PROMPT.format(content=content), max_tokens=1024)
-        concepts = _parse_json_array(raw)
-        if not concepts:
-            raise ValueError("empty")
-    except Exception:
-        concepts = _fallback_testable_concepts(text)
+    logger.info("Generating testable concepts via AI for doc_id=%s", doc_id)
+    raw = ai_client.invoke(DOC_TESTABLE_CONCEPTS_PROMPT.format(content=content), max_tokens=1024)
+    concepts = _parse_json_array(raw)
+    if not concepts:
+        raise ValueError("Model returned empty concepts JSON")
     return {"doc_id": doc_id, "concepts": concepts[:5]}
 
 
@@ -611,3 +645,18 @@ def handle_doc_chat(user_id: str, doc_id: str, message: str, ai_client, vector_s
         except Exception:
             answer = "AI is currently unavailable. Please try again later."
     return {"answer": answer, "citations": citations}
+
+
+def handle_list_doc_topics(user_id: str, doc_id: str, userstore, ai_client, vector_store) -> dict:
+    topics = userstore.list_doc_topics(user_id, doc_id)
+    if not topics:
+        text = _get_doc_text(user_id, doc_id, vector_store)
+        if text.strip():
+            logger.info("No cached topics. Generating topics for doc_id=%s", doc_id)
+            generated, _raw = _generate_topics_from_doc_texts(
+                [{"doc_id": doc_id, "filename": doc_id, "text": text}],
+                ai_client,
+            )
+            topics = userstore.replace_doc_topics(user_id, doc_id, generated)
+    status = "ready" if topics else "processing"
+    return {"doc_id": doc_id, "status": status, "topics": topics}

@@ -67,6 +67,11 @@ resource "aws_iam_role_policy" "text_extraction" {
       },
       {
         Effect = "Allow"
+        Action = ["s3:ListBucket"]
+        Resource = var.pdf_bucket_arn
+      },
+      {
+        Effect = "Allow"
         Action = ["s3:PutObject"]
         Resource = "${var.source_bucket_arn}/*"
       },
@@ -212,7 +217,7 @@ resource "aws_iam_role_policy" "api_backend" {
     Statement = [
       {
         Effect = "Allow"
-        Action = ["s3:PutObject", "s3:GetObject"]
+        Action = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]
         Resource = "${var.pdf_bucket_arn}/*"
       },
       {
@@ -230,6 +235,14 @@ resource "aws_iam_role_policy" "api_backend" {
           "dynamodb:DeleteItem"
         ]
         Resource = "arn:aws:dynamodb:${var.region}:*:table/${var.dynamodb_table_name}"
+      },
+      {
+        Effect = "Allow"
+        Action = ["bedrock:Retrieve", "bedrock:RetrieveAndGenerate", "bedrock:InvokeModel"]
+        Resource = [
+          "arn:aws:bedrock:${var.region}:*:knowledge-base/*",
+          "arn:aws:bedrock:${var.region}::foundation-model/*"
+        ]
       },
       {
         Effect = "Allow"
@@ -389,16 +402,17 @@ resource "aws_lambda_function" "api_backend" {
 
   environment {
     variables = {
-      AI_BACKEND                 = "local"
+      AI_BACKEND                 = "bedrock"
+      AI_MODEL_ID                = var.bedrock_model_id
       APP_REGION                 = var.region
       STORAGE_BACKEND            = "s3"
       STORAGE_BUCKET             = var.pdf_bucket_name
       USERSTORE_BACKEND          = "dynamodb"
       USERSTORE_TABLE            = var.dynamodb_table_name
-      VECTOR_BACKEND             = "local"
+      VECTOR_BACKEND             = "bedrock_kb"
       SERVE_FRONTEND             = "false"
       CORS_ORIGINS               = var.cors_origin
-      VECTOR_BEDROCK_KB_ID        = var.bedrock_kb_id
+      VECTOR_BEDROCK_KB_ID       = var.bedrock_kb_id
       VECTOR_BEDROCK_DATA_SOURCE_ID = var.bedrock_datasource_id
     }
   }

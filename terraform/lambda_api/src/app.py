@@ -128,6 +128,19 @@ def api_list_bank_documents(request: Request, x_user_id: str | None = Header(def
     return handlers.handle_list_docs(_resolve_user_id(request, x_user_id), userstore)
 
 
+@app.delete("/api/bank/documents/{doc_id}")
+def api_delete_bank_document(doc_id: str, request: Request, x_user_id: str | None = Header(default=None)) -> dict:
+    return _require_success(
+        handlers.handle_delete_doc(
+            user_id=_resolve_user_id(request, x_user_id),
+            doc_id=doc_id,
+            storage=storage,
+            userstore=userstore,
+        ),
+        status_code=404,
+    )
+
+
 @app.post("/api/bank/documents/upload")
 async def api_upload_bank_document(request: Request, file: UploadFile = File(...), x_user_id: str | None = Header(default=None)) -> dict:
     user_id = _resolve_user_id(request, x_user_id)
@@ -166,6 +179,7 @@ def api_finalize_upload(req: FinalizeRequest, request: Request, x_user_id: str |
         storage=storage,
         userstore=userstore,
         vector_store=vector_store,
+        ai_client=ai_client,
     )
 
 
@@ -326,6 +340,17 @@ def api_doc_chat(doc_id: str, req: DocChatRequest, request: Request, x_user_id: 
         user_id=_resolve_user_id(request, x_user_id),
         doc_id=doc_id,
         message=req.message.strip(),
+        ai_client=ai_client,
+        vector_store=vector_store,
+    )
+
+
+@app.get("/api/documents/{doc_id}/topics")
+def api_doc_topics(doc_id: str, request: Request, x_user_id: str | None = Header(default=None)) -> dict:
+    return handlers.handle_list_doc_topics(
+        user_id=_resolve_user_id(request, x_user_id),
+        doc_id=doc_id,
+        userstore=userstore,
         ai_client=ai_client,
         vector_store=vector_store,
     )

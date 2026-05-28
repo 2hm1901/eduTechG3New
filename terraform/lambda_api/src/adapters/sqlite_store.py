@@ -27,6 +27,21 @@ class SQLiteUserStore:
         self._assert_supported_schema()
         schema_path = Path(__file__).resolve().parents[2] / "migrations" / "001_core_schema.sql"
         self.conn.executescript(schema_path.read_text(encoding="utf-8"))
+        self.conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS document_topics (
+                topic_id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                doc_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                position INTEGER NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_document_topics_user_doc_pos
+                ON document_topics(user_id, doc_id, position);
+            """
+        )
         self.conn.commit()
 
     def _table_columns(self, table: str) -> list[str]:
@@ -213,6 +228,55 @@ class SQLiteUserStore:
             "chars": row["chars_extracted"],
             "created_at": row["created_at"],
         }
+
+    def delete_document(self, user_id: str, doc_id: str) -> None:
+        self.conn.execute("DELETE FROM document_topics WHERE user_id = ? AND doc_id = ?", (user_id, doc_id))
+        self.conn.execute("DELETE FROM folder_documents WHERE doc_id = ?", (doc_id,))
+        self.conn.execute("DELETE FROM documents WHERE user_id = ? AND doc_id = ?", (user_id, doc_id))
+        self.conn.commit()
+
+    def replace_doc_topics(self, user_id: str, doc_id: str, topics: list[dict]) -> list[dict]:
+        now = _now()
+        self.conn.execute(
+            "DELETE FROM document_topics WHERE user_id = ? AND doc_id = ?",
+            (user_id, doc_id),
+        )
+        saved = []
+        for index, topic in enumerate(topics[:5], start=1):
+            topic_id = str(uuid.uuid4())
+            self.conn.execute(
+                "INSERT INTO document_topics (topic_id, user_id, doc_id, title, summary, position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (topic_id, user_id, doc_id, topic.get("title", f"Topic {index}"), topic.get("summary", ""), index, now),
+            )
+            saved.append(
+                {
+                    "topic_id": topic_id,
+                    "doc_id": doc_id,
+                    "title": topic.get("title", f"Topic {index}"),
+                    "summary": topic.get("summary", ""),
+                    "position": index,
+                    "created_at": now,
+                }
+            )
+        self.conn.commit()
+        return saved
+
+    def list_doc_topics(self, user_id: str, doc_id: str) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT topic_id, doc_id, title, summary, position, created_at FROM document_topics WHERE user_id = ? AND doc_id = ? ORDER BY position ASC",
+            (user_id, doc_id),
+        ).fetchall()
+        return [
+            {
+                "topic_id": row["topic_id"],
+                "doc_id": row["doc_id"],
+                "title": row["title"],
+                "summary": row["summary"],
+                "position": row["position"],
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
 
     # ---- Folders ----
     def create_folder(self, user_id: str, name: str) -> dict:
