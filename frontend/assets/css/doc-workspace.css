@@ -5,12 +5,15 @@
 .doc-workspace-layout {
   display: grid;
   gap: 16px;
-  max-width: 900px;
+  max-width: 980px;
   margin: 0 auto;
 }
 
 .doc-main-panel {
   min-height: calc(100vh - 210px);
+  background:
+    radial-gradient(circle at top left, rgba(214, 235, 255, 0.65), transparent 38%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(246, 250, 255, 0.98));
 }
 
 /* ── Loading state ── */
@@ -42,89 +45,113 @@
 .summary-bubble,
 .concepts-bubble {
   max-width: 100% !important;
-  background: linear-gradient(135deg, #f0f7ff 0%, #fafcff 100%) !important;
-  border-color: #d0e3ff !important;
+  background: linear-gradient(180deg, rgba(246, 250, 255, 0.98) 0%, rgba(239, 247, 255, 0.94) 100%) !important;
+  border-color: #c7dcf6 !important;
+  box-shadow: 0 18px 40px rgba(24, 58, 94, 0.08);
 }
 
 .bubble-header {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 12px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #d0e3ff;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(139, 177, 214, 0.35);
 }
 
 .bubble-icon {
-  font-size: 1.3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(46, 107, 181, 0.12);
+  font-size: 1rem;
   line-height: 1;
 }
 
 .bubble-label {
-  font-size: 1rem;
-  letter-spacing: -0.02em;
-  color: var(--accent-strong, #1d4ed8);
+  font-size: 1.02rem;
+  letter-spacing: -0.03em;
+  color: #184268;
 }
 
 .bubble-body {
-  line-height: 1.65;
-  color: var(--ink);
+  color: #14324d;
 }
 
-.summary-body p {
-  margin: 0 0 10px;
+.summary-body {
+  max-width: 72ch;
+  font-size: 0.97rem;
+  line-height: 1.75;
 }
 
-.summary-body p:last-child {
+.summary-body p,
+.summary-body ul {
+  margin: 0 0 12px;
+}
+
+.summary-body p:last-child,
+.summary-body ul:last-child {
   margin-bottom: 0;
+}
+
+.summary-body ul {
+  padding-left: 1.15rem;
+}
+
+.summary-body li {
+  margin-bottom: 0.45rem;
 }
 
 /* ── Concepts grid ── */
 
 .concepts-grid {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .concept-card {
-  padding: 14px 16px;
-  border-radius: 12px;
-  border: 1px solid #c7d9f1;
-  background: rgba(255, 255, 255, 0.8);
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(156, 188, 222, 0.6);
+  background: rgba(255, 255, 255, 0.84);
+  transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
 }
 
 .concept-card:hover {
-  border-color: var(--accent);
-  transform: translateY(-1px);
+  border-color: #6798cc;
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px rgba(24, 58, 94, 0.09);
 }
 
 .concept-header {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .concept-number {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--accent);
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #2f6fae, #17456e);
   color: #fff;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 700;
   flex-shrink: 0;
 }
 
 .concept-why {
   margin: 0 0 8px;
-  color: var(--muted);
-  font-size: 0.88rem;
-  line-height: 1.5;
+  color: #4f6780;
+  font-size: 0.9rem;
+  line-height: 1.55;
 }
 
 .concept-points {
@@ -148,5 +175,10 @@
 @media (max-width: 720px) {
   .doc-workspace-layout {
     max-width: 100%;
+  }
+
+  .summary-body {
+    font-size: 0.94rem;
+    line-height: 1.68;
   }
 }

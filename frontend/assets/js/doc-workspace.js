@@ -28,7 +28,7 @@ function renderSummaryBubble(summary) {
     <article class="chat-bubble assistant summary-bubble">
       <div class="bubble-header">
         <span class="bubble-icon">📝</span>
-        <strong class="bubble-label">One-Page Summary</strong>
+        <strong class="bubble-label">Quick Summary</strong>
       </div>
       <div class="bubble-body summary-body">${formatContent(summary)}</div>
     </article>
@@ -100,14 +100,20 @@ function renderAssistantBubble(answer, citations) {
 }
 
 function formatContent(text) {
-  // Basic markdown-like formatting: preserve paragraphs and line breaks
-  return escapeHtml(text)
-    .replace(/\n\n/g, "</p><p>")
-    .replace(/\n/g, "<br>")
-    .replace(/^/, "<p>")
-    .replace(/$/, "</p>")
-    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-    .replace(/- /g, "• ");
+  const safe = escapeHtml(text || "").replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+  const blocks = safe.split(/\n\s*\n/).map((block) => block.trim()).filter(Boolean);
+  return blocks
+    .map((block) => {
+      const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
+      const bulletLines = lines.filter((line) => /^[-•]\s+/.test(line));
+      if (bulletLines.length === lines.length) {
+        return `<ul>${bulletLines
+          .map((line) => `<li>${line.replace(/^[-•]\s+/, "")}</li>`)
+          .join("")}</ul>`;
+      }
+      return `<p>${lines.join("<br>")}</p>`;
+    })
+    .join("");
 }
 
 function renderChat() {
