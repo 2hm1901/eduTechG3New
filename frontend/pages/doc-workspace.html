@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StudyBot — Document Workspace</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <link rel="stylesheet" href="../assets/css/folder.css">
+  <link rel="stylesheet" href="../assets/css/doc-workspace.css">
+</head>
+<body class="doc-workspace-page">
+  <div class="page-shell app-shell">
+    <header class="topbar app-topbar reveal">
+      <div class="topbar-main">
+        <a href="/" class="brand-mark">StudyBot</a>
+        <nav class="topbar-nav">
+          <a class="nav-link" href="/">Bank</a>
+          <a class="nav-link active" href="#">Document</a>
+        </nav>
+      </div>
+      <div class="topbar-side">
+        <div class="status">User <strong id="user-label"></strong></div>
+        <button class="btn-secondary" id="logout-btn">Logout</button>
+      </div>
+    </header>
+
+    <section class="page-head reveal">
+      <div>
+        <span class="eyebrow">Document Workspace</span>
+        <h1 id="doc-title">Loading document...</h1>
+        <p class="muted" id="doc-meta">Preparing your study materials...</p>
+      </div>
+      <div class="page-head-actions">
+        <a class="btn btn-secondary" href="/" id="back-link">← Back to Bank</a>
+      </div>
+    </section>
+
+    <main class="doc-workspace-layout reveal">
+      <section class="panel doc-main-panel">
+        <div class="chat-shell">
+          <div class="chat-messages" id="chat-messages">
+            <div class="doc-loading-state" id="loading-state">
+              <div class="loading-spinner"></div>
+              <p class="muted">Analyzing your document...</p>
+            </div>
+          </div>
+
+          <div class="chat-composer">
+            <input id="chat-input" placeholder="Ask a question about this document...">
+            <button class="btn-primary" id="send-btn">Send</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="auth-overlay open" id="auth-overlay">
+    <div class="auth-box">
+      <h2>StudyBot Sign In</h2>
+      <p class="muted">Sign in to continue.</p>
+      <div class="stack">
+        <input id="auth-user" placeholder="Username">
+        <input id="auth-pass" type="password" placeholder="Password">
+        <div id="auth-error" class="small auth-error"></div>
+        <div class="row">
+          <button class="btn-primary" id="auth-login">Sign in</button>
+          <button class="btn-secondary" id="auth-register">Register</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-stack" id="toast-stack"></div>
+  <script src="../assets/js/amazon-cognito-identity.min.js"></script>
+  <script src="../config.js"></script>
+  <script type="module" src="../assets/js/doc-workspace.js"></script>
+</body>
+</html>

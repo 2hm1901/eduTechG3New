@@ -1,0 +1,9 @@
+{
+  "retrievalQuery": {"text": "summary overview key concepts"},
+  "retrievalConfiguration": {
+    "vectorSearchConfiguration": {
+      "numberOfResults": 5,
+      "filter": {"equals": {"key": "doc_id", "value": "210691dc-fed1-46fe-aaca-f45cb7b76f40"}}
+    }
+  }
+}

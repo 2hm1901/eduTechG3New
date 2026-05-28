@@ -16,6 +16,15 @@ class BedrockAI:
         self.model_id = model_id
         self.runtime = boto3.client("bedrock-runtime", region_name=region)
         self.agent_runtime = boto3.client("bedrock-agent-runtime", region_name=region)
+        self.sts = boto3.client("sts", region_name=region)
+
+    def _model_arn(self) -> str:
+        if self.model_id.startswith("arn:"):
+            return self.model_id
+        if self.model_id.startswith(("global.", "apac.", "us.", "eu.", "au.")):
+            account_id = self.sts.get_caller_identity()["Account"]
+            return f"arn:aws:bedrock:{self.region}:{account_id}:inference-profile/{self.model_id}"
+        return f"arn:aws:bedrock:{self.region}::foundation-model/{self.model_id}"
 
     def invoke(self, prompt: str, **kwargs: Any) -> str:
         max_tokens = kwargs.get("max_tokens", 1024)
@@ -29,14 +38,13 @@ class BedrockAI:
     def retrieve_and_generate(self, query: str, kb_id: str = "") -> dict:
         if not kb_id:
             raise ValueError("VECTOR_BEDROCK_KB_ID must be set for Bedrock KB retrieve_and_generate")
-        model_arn = f"arn:aws:bedrock:{self.region}::foundation-model/{self.model_id}"
         resp = self.agent_runtime.retrieve_and_generate(
             input={"text": query},
             retrieveAndGenerateConfiguration={
                 "type": "KNOWLEDGE_BASE",
                 "knowledgeBaseConfiguration": {
                     "knowledgeBaseId": kb_id,
-                    "modelArn": model_arn,
+                    "modelArn": self._model_arn(),
                 },
             },
         )

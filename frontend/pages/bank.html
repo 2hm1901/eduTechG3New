@@ -29,39 +29,16 @@
       <div>
         <span class="eyebrow">Source Library</span>
         <h1>Document Bank</h1>
-        <p class="muted">Upload once. Reuse anywhere.</p>
+        <p class="muted">Upload once. Click a document to study.</p>
       </div>
       <div class="page-head-actions">
         <button class="btn-primary" id="browse-upload">Upload file</button>
-        <button class="btn-secondary" id="create-folder-btn">New folder</button>
         <input type="file" id="upload-input" hidden accept=".pdf,.txt,.md">
       </div>
     </section>
 
-    <main class="workspace-grid bank-app">
-      <aside class="panel reveal bank-sidebar">
-        <div class="section-head compact">
-          <div>
-            <span class="eyebrow">Folders</span>
-            <h2>Study spaces</h2>
-          </div>
-        </div>
-        <div class="metric-strip" id="bank-stats"></div>
-        <div class="folder-list" id="folders-list"></div>
-      </aside>
-
-      <section class="panel reveal bank-main">
-        <div class="bank-toolbar">
-        <div class="toolbar-copy">
-          <span class="eyebrow">Bank files</span>
-          <h2>All files</h2>
-          <p class="muted">Folders handle study work.</p>
-        </div>
-        <div class="toolbar-actions">
-          <button class="btn-secondary" id="open-assign-btn">Assign</button>
-        </div>
-      </div>
-
+    <main class="bank-content reveal">
+      <section class="panel bank-main-full">
         <section class="dropzone bank-upload" id="dropzone">
           <div>
             <div class="dropzone-mark">PDF / TXT / MD</div>
@@ -73,35 +50,6 @@
         <div class="doc-table" id="docs-list"></div>
       </section>
     </main>
-  </div>
-
-  <div class="modal-backdrop" id="assign-modal">
-    <div class="modal">
-      <h3>Assign to Folder</h3>
-      <p class="muted">Pick folder and files.</p>
-      <div class="stack">
-        <select id="assign-folder-select"></select>
-        <div class="list modal-scroll" id="assign-doc-list"></div>
-        <div class="row between">
-          <button class="btn-secondary" id="assign-close">Close</button>
-          <button class="btn-primary" id="assign-submit">Add selected docs</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-backdrop" id="folder-modal">
-    <div class="modal">
-      <h3 id="folder-modal-title">Create folder</h3>
-      <p class="muted" id="folder-modal-copy">Name this folder.</p>
-      <div class="stack">
-        <input id="folder-name-input" placeholder="e.g. ML Midterm Revision">
-        <div class="row between">
-          <button class="btn-secondary" id="folder-modal-close">Close</button>
-          <button class="btn-primary" id="folder-modal-submit">Save</button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <div class="auth-overlay open" id="auth-overlay">

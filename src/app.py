@@ -288,13 +288,69 @@ def api_submit_topic_quiz(topic_id: str, req: TopicQuizSubmitRequest, request: R
     )
 
 
+class DocChatRequest(BaseModel):
+    message: str
+
+
+@app.post("/api/documents/{doc_id}/summary")
+def api_doc_summary(doc_id: str, request: Request, x_user_id: str | None = Header(default=None)) -> dict:
+    return _require_success(
+        handlers.handle_doc_summary(
+            user_id=_resolve_user_id(request, x_user_id),
+            doc_id=doc_id,
+            ai_client=ai_client,
+            vector_store=vector_store,
+            userstore=userstore,
+        ),
+        status_code=404,
+    )
+
+
+@app.post("/api/documents/{doc_id}/testable-concepts")
+def api_doc_testable_concepts(doc_id: str, request: Request, x_user_id: str | None = Header(default=None)) -> dict:
+    return _require_success(
+        handlers.handle_doc_testable_concepts(
+            user_id=_resolve_user_id(request, x_user_id),
+            doc_id=doc_id,
+            ai_client=ai_client,
+            vector_store=vector_store,
+        ),
+        status_code=404,
+    )
+
+
+@app.get("/api/documents/{doc_id}/topics")
+def api_doc_topics(doc_id: str, request: Request, x_user_id: str | None = Header(default=None)) -> dict:
+    return _require_success(
+        handlers.handle_doc_topics(
+            user_id=_resolve_user_id(request, x_user_id),
+            doc_id=doc_id,
+            ai_client=ai_client,
+            vector_store=vector_store,
+            userstore=userstore,
+        ),
+        status_code=404,
+    )
+
+
+@app.post("/api/documents/{doc_id}/chat")
+def api_doc_chat(doc_id: str, req: DocChatRequest, request: Request, x_user_id: str | None = Header(default=None)) -> dict:
+    if not req.message.strip():
+        raise HTTPException(status_code=400, detail="Message is required")
+    return handlers.handle_doc_chat(
+        user_id=_resolve_user_id(request, x_user_id),
+        doc_id=doc_id,
+        message=req.message.strip(),
+        ai_client=ai_client,
+        vector_store=vector_store,
+    )
+
+
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 PAGES_DIR = FRONTEND_DIR / "pages"
 ASSETS_DIR = FRONTEND_DIR / "assets"
 
 if config.serve_frontend:
-    if ASSETS_DIR.exists():
-        app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
 
     @app.get("/")
     def bank_page() -> FileResponse:
@@ -303,6 +359,10 @@ if config.serve_frontend:
     @app.get("/config.js")
     def config_js() -> FileResponse:
         return FileResponse(FRONTEND_DIR / "config.js")
+
+    @app.get("/doc/{doc_id}")
+    def doc_workspace_page(doc_id: str) -> FileResponse:
+        return FileResponse(PAGES_DIR / "doc-workspace.html")
 
     @app.get("/folder/{folder_id}")
     def folder_page(folder_id: str) -> FileResponse:
@@ -319,6 +379,12 @@ if config.serve_frontend:
     @app.get("/folder/{folder_id}/dashboard")
     def folder_dashboard_page(folder_id: str) -> FileResponse:
         return FileResponse(PAGES_DIR / "folder-dashboard.html")
+
+    # Static file mounts must be LAST — they act as catch-all for their prefix
+    if ASSETS_DIR.exists():
+        app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
+    if PAGES_DIR.exists():
+        app.mount("/pages", StaticFiles(directory=PAGES_DIR), name="pages")
 
 
 try:
