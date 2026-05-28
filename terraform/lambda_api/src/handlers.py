@@ -253,24 +253,23 @@ def handle_presign(user_id: str, filename: str, content_type: str, storage) -> d
     key = f"{user_id}/{doc_id}/{filename}"
     upload_url = storage.generate_presigned_url(key, content_type)
     return {
-        "upload_url": upload_url,
+        "uploadUrl": upload_url,
         "key": key,
+        "docId": doc_id,
+        "upload_url": upload_url,
         "doc_id": doc_id,
     }
 
 
 def handle_finalize(user_id: str, doc_id: str, filename: str, key: str, size: int, storage, userstore, vector_store) -> dict:
-    # 1. Get location from storage
     if hasattr(storage, "bucket"):
         location = f"s3://{storage.bucket}/{key}"
     else:
         location = f"file://{storage.base.resolve()}/{key}"
 
-    # 2. Extract text from storage
     data = storage.get(key)
     text = _extract_text(filename, data)
 
-    # 3. Ingest and Add Doc
     if text.strip():
         vector_store.ingest(doc_id=doc_id, text=text, metadata={"user_id": user_id, "filename": filename})
     userstore.add_doc(

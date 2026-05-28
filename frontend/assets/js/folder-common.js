@@ -7,6 +7,10 @@ export function byId(id) {
 }
 
 export function getFolderId() {
+  const queryFolder = new URLSearchParams(window.location.search).get("folder");
+  if (queryFolder) {
+    return queryFolder;
+  }
   const parts = window.location.pathname.split("/").filter(Boolean);
   const folderIndex = parts.indexOf("folder");
   return folderIndex >= 0 ? parts[folderIndex + 1] || "" : "";
@@ -70,9 +74,9 @@ export function renderFolderChrome(folder, activeView) {
   byId("folder-title").textContent = folder.name;
   byId("folder-meta").textContent = `${folder.doc_count} files · ${folder.topics_generated ? "topics ready" : "no topics"}`;
 
-  const workspaceHref = `/folder/${folder.folder_id}/workspace`;
-  const quizHref = `/folder/${folder.folder_id}/quiz`;
-  const dashboardHref = `/folder/${folder.folder_id}/dashboard`;
+  const workspaceHref = `/pages/folder-workspace.html?folder=${folder.folder_id}`;
+  const quizHref = `/pages/folder-quiz.html?folder=${folder.folder_id}`;
+  const dashboardHref = `/pages/folder-dashboard.html?folder=${folder.folder_id}`;
 
   byId("workspace-link").href = workspaceHref;
   byId("quiz-link").href = quizHref;

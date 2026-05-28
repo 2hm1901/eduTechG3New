@@ -112,6 +112,83 @@ pytest -v
 
 ---
 
+## Sau khi pull repo: build lại Terraform Lambda package
+
+Các thư mục thư viện trong `terraform/lambda_api` và các file `.zip` không commit lên Git. Sau khi pull repo mới, chạy các lệnh dưới đây từ repo root để tạo lại package trước khi `terraform apply`.
+
+Yêu cầu máy có `python3`, `pip`, `zip`, Terraform CLI và AWS credentials.
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Build lại FastAPI Lambda package:
+
+```bash
+cd terraform
+
+python3 -m pip install \
+  --platform manylinux2014_aarch64 \
+  --implementation cp \
+  --python-version 3.12 \
+  --only-binary=:all: \
+  --target lambda_api \
+  fastapi mangum python-multipart pydantic
+
+cd lambda_api
+zip -qr api_backend.zip \
+  src \
+  fastapi starlette pydantic pydantic_core \
+  annotated_doc annotated_types anyio idna mangum \
+  multipart python_multipart typing_inspection typing_extensions.py \
+  *.dist-info
+cd ../..
+```
+
+Build lại các Lambda placeholder zip:
+
+```bash
+cd terraform/lambda_placeholder
+zip -q upload_handler.zip upload_handler.py
+zip -q chat.zip chat.py
+zip -q summarize_quiz.zip summarize_quiz.py
+zip -q dashboard.zip dashboard.py
+
+mkdir -p build_text_extract
+python3 -m pip install \
+  --platform manylinux2014_aarch64 \
+  --implementation cp \
+  --python-version 3.12 \
+  --only-binary=:all: \
+  --target build_text_extract \
+  pypdf
+cp text_extraction.py build_text_extract/
+cd build_text_extract
+zip -qr ../text_extraction.zip .
+cd ../../..
+```
+
+Deploy Terraform:
+
+```bash
+cd terraform
+terraform init
+terraform plan
+terraform apply
+cd ..
+```
+
+Nếu cần build lại từ đầu, xóa các artifact local rồi chạy lại block build:
+
+```bash
+rm -rf terraform/lambda_api/{fastapi,starlette,pydantic,pydantic_core,annotated_doc,annotated_types,anyio,idna,mangum,multipart,python_multipart,typing_inspection,bin,*.dist-info,typing_extensions.py,api_backend.zip}
+rm -rf terraform/lambda_placeholder/{build_text_extract,*.zip}
+```
+
+---
+
 ## Team workflow (avoid conflicts)
 
 This repo is designed **local-first**:

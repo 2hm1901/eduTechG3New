@@ -79,13 +79,13 @@ function renderFolders() {
       (folder) => `
         <article class="folder-row">
           <div class="folder-row-main">
-            <a class="folder-name-link" href="/folder/${folder.folder_id}/workspace">${escapeHtml(folder.name)}</a>
+            <a class="folder-name-link" href="/pages/folder-workspace.html?folder=${folder.folder_id}">${escapeHtml(folder.name)}</a>
             <div class="muted small">${folder.doc_count} files · ${folder.topics_generated ? "topics ready" : "topics not generated"}</div>
           </div>
           <div class="folder-actions">
             <button class="btn-secondary" data-folder="${folder.folder_id}" data-action="rename">Rename</button>
             <button class="btn-secondary" data-folder="${folder.folder_id}" data-action="add-docs">Add docs</button>
-            <a class="btn btn-primary" href="/folder/${folder.folder_id}/workspace">Open</a>
+            <a class="btn btn-primary" href="/pages/folder-workspace.html?folder=${folder.folder_id}">Open</a>
           </div>
         </article>
       `
@@ -110,15 +110,52 @@ async function loadBank() {
 }
 
 async function handleUpload(file) {
-  const form = new FormData();
-  form.append("file", file);
   byId("upload-note").textContent = `Uploading ${file.name}...`;
   try {
-    await api("/api/bank/documents/upload", { method: "POST", body: form });
+    // 1. Gọi Lambda upload_handler.py (qua endpoint /upload-pdf) để lấy Presigned URL
+    const presign = await api("/upload-pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filename: file.name,
+        contentType: file.type || "application/octet-stream",
+      }),
+    });
+
+    // Khớp với casing trong upload_handler.py: uploadUrl, docId
+    const { uploadUrl, key, docId } = presign;
+
+    // 2. Upload trực tiếp lên S3 bằng Presigned URL (Bỏ qua API Gateway/Lambda)
+    const baseUrl = window.API_BASE_URL || "";
+    const finalUploadUrl = uploadUrl.startsWith("http") ? uploadUrl : baseUrl + uploadUrl;
+
+    const uploadResponse = await fetch(finalUploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+      body: file,
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error("Failed to upload file to S3");
+    }
+
+    // 3. Thông báo cho backend chính để lưu metadata vào database (Finalize)
+    await api("/api/bank/documents/upload/finalize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        docId: docId,
+        filename: file.name,
+        key: key,
+        size: file.size,
+      }),
+    });
+
     showToast(`Uploaded ${file.name}`, "success");
     byId("upload-note").textContent = `${file.name} uploaded`;
     await loadBank();
   } catch (error) {
+    console.error("Upload error:", error);
     byId("upload-note").textContent = error.message;
     showToast(error.message, "error");
   }

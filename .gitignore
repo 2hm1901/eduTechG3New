@@ -15,3 +15,93 @@ app_state/
 
 # AWS SAM
 .aws-sam/
+
+# =========================
+# Terraform
+# =========================
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+*.tfplan
+crash.log
+
+# Keep provider lock file
+!.terraform.lock.hcl
+
+# Lambda build/package artifacts
+terraform/lambda_api/api_backend.zip
+terraform/lambda_api/bin/
+terraform/lambda_api/*.dist-info/
+terraform/lambda_api/annotated_doc/
+terraform/lambda_api/annotated_types/
+terraform/lambda_api/anyio/
+terraform/lambda_api/fastapi/
+terraform/lambda_api/idna/
+terraform/lambda_api/mangum/
+terraform/lambda_api/multipart/
+terraform/lambda_api/pydantic/
+terraform/lambda_api/pydantic_core/
+terraform/lambda_api/python_multipart/
+terraform/lambda_api/starlette/
+terraform/lambda_api/typing_extensions.py
+terraform/lambda_api/typing_inspection/
+terraform/lambda_placeholder/*.zip
+terraform/lambda_placeholder/build_text_extract/
+
+# =========================
+# AWS SAM
+# =========================
+.aws-sam/
+
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+
+.venv/
+venv/
+env/
+
+.pytest_cache/
+.coverage
+htmlcov/
+
+# =========================
+# Environment Variables
+# =========================
+.env
+.env.*
+*.pem
+*.key
+
+# =========================
+# Frontend
+# =========================
+node_modules/
+dist/
+build/
+
+# =========================
+# IDE / OS
+# =========================
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# =========================
+# Logs
+# =========================
+*.log

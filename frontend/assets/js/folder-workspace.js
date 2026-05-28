@@ -80,7 +80,7 @@ function renderTopics() {
           <p class="small muted">${escapeHtml(summarizeText(topic.summary, 180))}</p>
           <div class="topic-actions">
             <button class="btn-secondary" data-action="focus-topic" data-topic="${topic.topic_id}">Focus</button>
-            <a class="btn btn-secondary" href="/folder/${folderId}/quiz?topic=${topic.topic_id}">Quiz</a>
+            <a class="btn btn-secondary" href="/pages/folder-quiz.html?folder=${folderId}&topic=${topic.topic_id}">Quiz</a>
           </div>
         </article>
       `
