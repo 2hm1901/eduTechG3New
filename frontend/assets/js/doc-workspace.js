@@ -151,7 +151,13 @@ async function loadDocMeta() {
   }
   state.doc = doc;
   byId("doc-title").textContent = doc.filename;
-  byId("doc-meta").textContent = `Document ID: ${doc.doc_id.slice(0, 8)}`;
+  byId("doc-meta").textContent = `ID: ${doc.doc_id.slice(0, 8)} • ${Math.round((doc.size || 0) / 1024)} KB`;
+
+  // Wire up quiz link
+  const quizLink = byId("quiz-link");
+  if (quizLink) {
+    quizLink.href = `/pages/doc-quiz.html?doc=${encodeURIComponent(docId)}`;
+  }
 }
 
 async function loadSummary() {

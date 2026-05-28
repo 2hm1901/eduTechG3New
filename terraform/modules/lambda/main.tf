@@ -165,6 +165,21 @@ resource "aws_iam_role_policy" "summarize_quiz" {
       },
       {
         Effect   = "Allow"
+        Action   = ["s3:GetObject"]
+        Resource = "${var.source_bucket_arn}/*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = var.source_bucket_arn
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["kms:Decrypt", "kms:GenerateDataKey"]
+        Resource = var.kms_key_arn
+      },
+      {
+        Effect   = "Allow"
         Action   = ["dynamodb:PutItem", "dynamodb:GetItem"]
         Resource = "arn:aws:dynamodb:${var.region}:*:table/${var.dynamodb_table_name}"
       },
@@ -363,9 +378,10 @@ resource "aws_lambda_function" "summarize_quiz" {
 
   environment {
     variables = {
-      BEDROCK_MODEL_ID = var.bedrock_model_id
-      DYNAMODB_TABLE   = var.dynamodb_table_name
-      REGION           = var.region
+      BEDROCK_MODEL_ID   = var.bedrock_model_id
+      DYNAMODB_TABLE     = var.dynamodb_table_name
+      REGION             = var.region
+      SOURCE_BUCKET_NAME = var.source_bucket_name
     }
   }
 }

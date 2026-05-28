@@ -116,7 +116,7 @@ class DynamoDBUserStore:
         self.table.put_item(
             Item={
                 "user_id": user_id,
-                "sk": f"QUIZ#{ts}",
+                "sk": f"QUIZ#{doc_id}#{ts}",
                 "doc_id": doc_id,
                 "score": score,
                 "total": total,
@@ -125,6 +125,23 @@ class DynamoDBUserStore:
                 "created_at": ts,
             }
         )
+
+    def list_doc_quiz_attempts(self, user_id: str, doc_id: str, limit: int = 50) -> list:
+        resp = self.table.query(
+            KeyConditionExpression="user_id = :u AND begins_with(sk, :p)",
+            ExpressionAttributeValues={":u": user_id, ":p": f"QUIZ#{doc_id}#"},
+            ScanIndexForward=False,
+            Limit=limit,
+        )
+        return [
+            {
+                "score": int(item.get("score", 0)),
+                "total": int(item.get("total", 0)),
+                "percentage": int(item.get("percentage", 0)),
+                "created_at": item.get("created_at", ""),
+            }
+            for item in resp.get("Items", [])
+        ]
 
     def get_dashboard_stats(self, user_id: str) -> dict:
         from decimal import Decimal

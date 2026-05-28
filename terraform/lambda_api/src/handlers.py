@@ -35,7 +35,8 @@ FOLDER CONTENT:
 QUIZ_PROMPT_TEMPLATE = """You are a study assistant. Based on the study content below, generate exactly {question_count} multiple-choice quiz questions.
 
 RULES:
-- Each question must have exactly 4 options labeled A, B, C, D.
+- Each question must have exactly 4 options.
+- The options dictionary MUST use EXACTLY the keys "A", "B", "C", and "D". Do not use any other letters or numbers.
 - Exactly one option is correct.
 - Questions should test understanding, not just memorisation.
 - Cover different parts of the content.

@@ -687,6 +687,12 @@ class SQLiteUserStore:
             for row in rows
         ]
 
+    def log_quiz_result(self, user_id: str, doc_id: str, score: int, total: int, details: dict | None = None) -> None:
+        pass  # DynamoDB-only feature in the current plan
+
+    def list_doc_quiz_attempts(self, user_id: str, doc_id: str, limit: int = 50) -> list:
+        return []  # DynamoDB-only feature in the current plan
+
     # ---- Folder dashboard ----
     def get_folder_dashboard(self, user_id: str, folder_id: str) -> dict:
         folder = self.get_folder(user_id, folder_id)
