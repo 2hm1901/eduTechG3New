@@ -17,7 +17,7 @@ const docId = getDocId();
 const state = {
   doc: null,
   summary: null,
-  concepts: null,
+  topics: [],
   chatMessages: [],
 };
 
@@ -35,33 +35,38 @@ function renderSummaryBubble(summary) {
   `;
 }
 
-function renderConceptsBubble(concepts) {
-  const conceptCards = concepts
+function renderTopicsBubble(topics) {
+  if (!topics?.length) {
+    return `
+      <article class="chat-bubble assistant concepts-bubble">
+        <div class="bubble-header">
+          <span class="bubble-icon">📚</span>
+          <strong class="bubble-label">Five Study Topics</strong>
+        </div>
+        <div class="bubble-body"><p class="muted">Topics are being generated...</p></div>
+      </article>
+    `;
+  }
+  const topicCards = topics
     .map(
-      (c, i) => `
+      (topic) => `
         <div class="concept-card">
           <div class="concept-header">
-            <span class="concept-number">${i + 1}</span>
-            <strong>${escapeHtml(c.title)}</strong>
+            <span class="concept-number">${topic.position || ""}</span>
+            <strong>${escapeHtml(topic.title || "Untitled topic")}</strong>
           </div>
-          <p class="concept-why">${escapeHtml(c.why_testable || "")}</p>
-          ${
-            c.key_points?.length
-              ? `<ul class="concept-points">${c.key_points.map((p) => `<li>${escapeHtml(p)}</li>`).join("")}</ul>`
-              : ""
-          }
+          <p class="concept-why">${escapeHtml(topic.summary || "")}</p>
         </div>
       `
     )
     .join("");
-
   return `
     <article class="chat-bubble assistant concepts-bubble">
       <div class="bubble-header">
-        <span class="bubble-icon">🎯</span>
-        <strong class="bubble-label">Five Most Testable Concepts</strong>
+        <span class="bubble-icon">📚</span>
+        <strong class="bubble-label">Five Study Topics</strong>
       </div>
-      <div class="bubble-body concepts-grid">${conceptCards}</div>
+      <div class="bubble-body concepts-grid">${topicCards}</div>
     </article>
   `;
 }
@@ -112,10 +117,7 @@ function renderChat() {
   if (state.summary) {
     html += renderSummaryBubble(state.summary);
   }
-
-  if (state.concepts) {
-    html += renderConceptsBubble(state.concepts);
-  }
+  html += renderTopicsBubble(state.topics);
 
   for (const msg of state.chatMessages) {
     if (msg.role === "user") {
@@ -155,18 +157,12 @@ async function loadSummary() {
   }
 }
 
-async function loadConcepts() {
+async function loadTopics() {
   try {
-    const result = await api(`/api/documents/${docId}/testable-concepts`, { method: "POST" });
-    state.concepts = result.concepts || [];
-  } catch (err) {
-    state.concepts = [
-      {
-        title: "Error loading concepts",
-        why_testable: err.message,
-        key_points: [],
-      },
-    ];
+    const result = await api(`/api/documents/${docId}/topics`);
+    state.topics = result.topics || [];
+  } catch (_err) {
+    state.topics = [];
   }
 }
 
@@ -177,12 +173,12 @@ async function loadPage() {
   try {
     await loadDocMeta();
 
-    // Load summary first, render it, then load concepts
+    // Load summary first, render it, then load document topics.
     await loadSummary();
     byId("loading-state").style.display = "none";
     renderChat();
 
-    await loadConcepts();
+    await loadTopics();
     renderChat();
   } catch (err) {
     byId("loading-state").style.display = "none";

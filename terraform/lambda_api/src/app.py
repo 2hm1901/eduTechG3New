@@ -106,10 +106,6 @@ class FinalizeRequest(BaseModel):
     size: int
 
 
-class DocChatRequest(BaseModel):
-    message: str
-
-
 @app.get("/health")
 def health() -> dict:
     return {
@@ -292,6 +288,10 @@ def api_submit_topic_quiz(topic_id: str, req: TopicQuizSubmitRequest, request: R
     )
 
 
+class DocChatRequest(BaseModel):
+    message: str
+
+
 @app.post("/api/documents/{doc_id}/summary")
 def api_doc_summary(doc_id: str, request: Request, x_user_id: str | None = Header(default=None)) -> dict:
     return _require_success(
@@ -300,6 +300,7 @@ def api_doc_summary(doc_id: str, request: Request, x_user_id: str | None = Heade
             doc_id=doc_id,
             ai_client=ai_client,
             vector_store=vector_store,
+            userstore=userstore,
         ),
         status_code=404,
     )
@@ -313,6 +314,20 @@ def api_doc_testable_concepts(doc_id: str, request: Request, x_user_id: str | No
             doc_id=doc_id,
             ai_client=ai_client,
             vector_store=vector_store,
+        ),
+        status_code=404,
+    )
+
+
+@app.get("/api/documents/{doc_id}/topics")
+def api_doc_topics(doc_id: str, request: Request, x_user_id: str | None = Header(default=None)) -> dict:
+    return _require_success(
+        handlers.handle_doc_topics(
+            user_id=_resolve_user_id(request, x_user_id),
+            doc_id=doc_id,
+            ai_client=ai_client,
+            vector_store=vector_store,
+            userstore=userstore,
         ),
         status_code=404,
     )

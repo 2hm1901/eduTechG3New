@@ -17,7 +17,7 @@ def _env(name: str, default: str = "") -> str:
 class Config:
     # AI
     ai_backend: str = _env("AI_BACKEND", "local")
-    ai_model_id: str = _env("AI_MODEL_ID", "anthropic.claude-3-5-haiku-20241022-v1:0")
+    ai_model_id: str = _env("AI_MODEL_ID", "global.amazon.nova-2-lite-v1:0")
     aws_region: str = _env("AWS_REGION", "ap-southeast-1")
 
     # Storage

@@ -99,6 +99,21 @@ DOCUMENT CONTENT:
 
 FIVE MOST TESTABLE CONCEPTS:"""
 
+DOC_TOPICS_PROMPT = """You are a study assistant. Read the document content below and generate exactly 5 study topics for this single document.
+
+Return raw JSON only, no markdown:
+[
+  {{
+    "title": "Topic title",
+    "summary": "2-3 sentence study guide summary"
+  }}
+]
+
+DOCUMENT CONTENT:
+{content}
+
+FIVE STUDY TOPICS:"""
+
 DOC_CHAT_PROMPT = """You are a study assistant helping a student understand a specific document.
 
 Use the document context below to answer the student's question. Stay grounded in the source material. If the context does not contain the answer, say so plainly.
@@ -570,7 +585,16 @@ def _fallback_testable_concepts(text: str) -> list[dict]:
     return concepts
 
 
-def handle_doc_summary(user_id: str, doc_id: str, ai_client, vector_store) -> dict:
+def _fallback_doc_topics(doc_id: str, text: str) -> list[dict]:
+    return _fallback_topics([{"doc_id": doc_id, "text": text}], count=5)
+
+
+def handle_doc_summary(user_id: str, doc_id: str, ai_client, vector_store, userstore) -> dict:
+    document = userstore.get_document(user_id, doc_id) if hasattr(userstore, "get_document") else None
+    cached_summary = (document or {}).get("doc_summary")
+    if cached_summary:
+        return {"doc_id": doc_id, "summary": cached_summary, "cached": True}
+
     text = _get_doc_text(user_id, doc_id, vector_store)
     if not text.strip():
         return {"error": "No content found for this document. It may still be processing."}
@@ -579,7 +603,9 @@ def handle_doc_summary(user_id: str, doc_id: str, ai_client, vector_store) -> di
         summary = ai_client.invoke(DOC_SUMMARY_PROMPT.format(content=content), max_tokens=1024)
     except Exception:
         summary = _fallback_summary(text)
-    return {"doc_id": doc_id, "summary": summary}
+    if hasattr(userstore, "update_document_analysis"):
+        userstore.update_document_analysis(user_id, doc_id, summary=summary)
+    return {"doc_id": doc_id, "summary": summary, "cached": False}
 
 
 def handle_doc_testable_concepts(user_id: str, doc_id: str, ai_client, vector_store) -> dict:
@@ -595,6 +621,42 @@ def handle_doc_testable_concepts(user_id: str, doc_id: str, ai_client, vector_st
     except Exception:
         concepts = _fallback_testable_concepts(text)
     return {"doc_id": doc_id, "concepts": concepts[:5]}
+
+
+def handle_doc_topics(user_id: str, doc_id: str, ai_client, vector_store, userstore) -> dict:
+    document = userstore.get_document(user_id, doc_id) if hasattr(userstore, "get_document") else None
+    cached_topics = (document or {}).get("doc_topics") or []
+    if cached_topics:
+        return {"doc_id": doc_id, "topics": cached_topics, "cached": True}
+
+    text = _get_doc_text(user_id, doc_id, vector_store)
+    if not text.strip():
+        return {"error": "No content found for this document. It may still be processing."}
+
+    content = text[:15000]
+    try:
+        raw = ai_client.invoke(DOC_TOPICS_PROMPT.format(content=content), max_tokens=1024)
+        parsed = _parse_json_array(raw)
+        topics = [
+            {
+                "title": item.get("title", f"Topic {index}"),
+                "summary": item.get("summary", "Study guide topic"),
+                "position": index,
+                "doc_id": doc_id,
+            }
+            for index, item in enumerate(parsed[:5], start=1)
+        ]
+        if not topics:
+            raise ValueError("No topics")
+    except Exception:
+        topics = [
+            {**topic, "position": index, "doc_id": doc_id}
+            for index, topic in enumerate(_fallback_doc_topics(doc_id, text), start=1)
+        ]
+
+    if hasattr(userstore, "update_document_analysis"):
+        userstore.update_document_analysis(user_id, doc_id, topics=topics)
+    return {"doc_id": doc_id, "topics": topics, "cached": False}
 
 
 def handle_doc_chat(user_id: str, doc_id: str, message: str, ai_client, vector_store) -> dict:

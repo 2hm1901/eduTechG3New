@@ -188,7 +188,55 @@ class DynamoDBUserStore:
         item = resp.get("Item")
         if not item:
             return None
-        return {**item, "doc_id": item.get("doc_id", doc_id)}
+        topics = item.get("doc_topics", [])
+        if isinstance(topics, str):
+            try:
+                topics = json.loads(topics)
+            except Exception:
+                topics = []
+        return {**item, "doc_id": item.get("doc_id", doc_id), "doc_topics": topics}
+
+    def update_document_analysis(
+        self,
+        user_id: str,
+        doc_id: str,
+        *,
+        summary: str | None = None,
+        topics: list[dict] | None = None,
+    ) -> dict | None:
+        resp = self.table.get_item(Key={"user_id": user_id, "sk": f"DOC#{doc_id}"})
+        item = resp.get("Item")
+        if not item:
+            return None
+
+        updates = []
+        names = {}
+        values = {}
+        now = _now()
+
+        if summary is not None:
+            updates.append("#doc_summary = :summary")
+            names["#doc_summary"] = "doc_summary"
+            values[":summary"] = summary
+            updates.append("summary_generated_at = :summary_generated_at")
+            values[":summary_generated_at"] = now
+
+        if topics is not None:
+            updates.append("doc_topics = :topics")
+            values[":topics"] = json.dumps(topics)
+            updates.append("topics_generated_at = :topics_generated_at")
+            values[":topics_generated_at"] = now
+
+        if not updates:
+            return self.get_document(user_id, doc_id)
+
+        self.table.update_item(
+            Key={"user_id": user_id, "sk": f"DOC#{doc_id}"},
+            UpdateExpression="SET " + ", ".join(updates),
+            ExpressionAttributeNames=names or None,
+            ExpressionAttributeValues=values,
+        )
+        return self.get_document(user_id, doc_id)
 
     def rename_folder(self, user_id: str, folder_id: str, name: str) -> dict:
         sk = f"FOLDER#{folder_id}"

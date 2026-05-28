@@ -1,7 +1,8 @@
 data "aws_caller_identity" "current" {}
 
 locals {
-  account_id = data.aws_caller_identity.current.account_id
+  account_id        = data.aws_caller_identity.current.account_id
+  bedrock_model_arn = length(regexall("^(global|apac|us|eu|au)\\.", var.bedrock_model_id)) > 0 ? "arn:aws:bedrock:${var.region}:${local.account_id}:inference-profile/${var.bedrock_model_id}" : "arn:aws:bedrock:${var.region}::foundation-model/${var.bedrock_model_id}"
 }
 
 module "kms" {
@@ -42,7 +43,7 @@ module "lambda" {
   kms_key_arn              = module.kms.pdf_kms_key_arn
   bedrock_kb_id            = var.bedrock_kb_id
   bedrock_datasource_id    = var.bedrock_datasource_id
-  bedrock_model_arn        = var.bedrock_model_arn
+  bedrock_model_arn        = var.bedrock_model_arn != "" ? var.bedrock_model_arn : local.bedrock_model_arn
   bedrock_model_id         = var.bedrock_model_id
   dynamodb_table_name      = module.dynamodb.table_name
   upload_handler_zip       = var.upload_handler_zip
