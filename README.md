@@ -116,17 +116,15 @@ pytest -v
 
 Các thư mục thư viện trong `terraform/lambda_api` và các file `.zip` không commit lên Git. Sau khi pull repo mới, chạy các lệnh dưới đây từ repo root để tạo lại package trước khi `terraform apply`.
 
-Yêu cầu máy có `python3`, `pip`, `zip`, Terraform CLI và AWS credentials.
+Yêu cầu máy có Python 3, pip, Terraform CLI, AWS CLI và AWS credentials.
+
+### macOS / Linux
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-```
 
-Build lại FastAPI Lambda package:
-
-```bash
 cd terraform
 
 python3 -m pip install \
@@ -145,11 +143,7 @@ zip -qr api_backend.zip \
   multipart python_multipart typing_inspection typing_extensions.py \
   *.dist-info
 cd ../..
-```
 
-Build lại các Lambda placeholder zip:
-
-```bash
 cd terraform/lambda_placeholder
 zip -q upload_handler.zip upload_handler.py
 zip -q chat.zip chat.py
@@ -170,7 +164,60 @@ zip -qr ../text_extraction.zip .
 cd ../../..
 ```
 
-Deploy Terraform:
+### Windows PowerShell
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+
+Set-Location terraform
+
+python -m pip install `
+  --platform manylinux2014_aarch64 `
+  --implementation cp `
+  --python-version 3.12 `
+  --only-binary=:all: `
+  --target lambda_api `
+  fastapi mangum python-multipart pydantic
+
+Set-Location lambda_api
+Compress-Archive -Path `
+  src, `
+  fastapi, starlette, pydantic, pydantic_core, `
+  annotated_doc, annotated_types, anyio, idna, mangum, `
+  multipart, python_multipart, typing_inspection, typing_extensions.py, `
+  *.dist-info `
+  -DestinationPath api_backend.zip -Force
+Set-Location ..\..
+
+Set-Location terraform\lambda_placeholder
+Compress-Archive -Path upload_handler.py -DestinationPath upload_handler.zip -Force
+Compress-Archive -Path chat.py -DestinationPath chat.zip -Force
+Compress-Archive -Path summarize_quiz.py -DestinationPath summarize_quiz.zip -Force
+Compress-Archive -Path dashboard.py -DestinationPath dashboard.zip -Force
+
+New-Item -ItemType Directory -Force build_text_extract | Out-Null
+python -m pip install `
+  --platform manylinux2014_aarch64 `
+  --implementation cp `
+  --python-version 3.12 `
+  --only-binary=:all: `
+  --target build_text_extract `
+  pypdf
+Copy-Item text_extraction.py build_text_extract\
+Set-Location build_text_extract
+Compress-Archive -Path * -DestinationPath ..\text_extraction.zip -Force
+Set-Location ..\..\..
+```
+
+Nếu PowerShell báo không chạy được `Activate.ps1`, chạy lệnh này trong cùng terminal rồi activate lại:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+Deploy Terraform trên cả macOS/Linux/Windows:
 
 ```bash
 cd terraform
@@ -180,11 +227,36 @@ terraform apply
 cd ..
 ```
 
-Nếu cần build lại từ đầu, xóa các artifact local rồi chạy lại block build:
+Nếu cần build lại từ đầu trên macOS/Linux:
 
 ```bash
 rm -rf terraform/lambda_api/{fastapi,starlette,pydantic,pydantic_core,annotated_doc,annotated_types,anyio,idna,mangum,multipart,python_multipart,typing_inspection,bin,*.dist-info,typing_extensions.py,api_backend.zip}
 rm -rf terraform/lambda_placeholder/{build_text_extract,*.zip}
+```
+
+Nếu cần build lại từ đầu trên Windows PowerShell:
+
+```powershell
+Remove-Item -Recurse -Force `
+  terraform\lambda_api\fastapi, `
+  terraform\lambda_api\starlette, `
+  terraform\lambda_api\pydantic, `
+  terraform\lambda_api\pydantic_core, `
+  terraform\lambda_api\annotated_doc, `
+  terraform\lambda_api\annotated_types, `
+  terraform\lambda_api\anyio, `
+  terraform\lambda_api\idna, `
+  terraform\lambda_api\mangum, `
+  terraform\lambda_api\multipart, `
+  terraform\lambda_api\python_multipart, `
+  terraform\lambda_api\typing_inspection, `
+  terraform\lambda_api\bin, `
+  terraform\lambda_api\*.dist-info, `
+  terraform\lambda_api\typing_extensions.py, `
+  terraform\lambda_api\api_backend.zip, `
+  terraform\lambda_placeholder\build_text_extract, `
+  terraform\lambda_placeholder\*.zip `
+  -ErrorAction SilentlyContinue
 ```
 
 ---
