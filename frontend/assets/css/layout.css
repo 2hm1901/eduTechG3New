@@ -137,10 +137,6 @@ a {
   gap: 16px;
 }
 
-.workspace-grid.bank-app {
-  grid-template-columns: 280px minmax(0, 1fr);
-}
-
 .workspace-grid.folder-app {
   grid-template-columns: 280px minmax(0, 1fr) 320px;
   align-items: start;
@@ -238,7 +234,6 @@ a {
 }
 
 @media (max-width: 1160px) {
-  .workspace-grid.bank-app,
   .workspace-grid.folder-app,
   .dashboard-columns {
     grid-template-columns: 1fr;

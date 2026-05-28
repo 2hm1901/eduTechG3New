@@ -69,6 +69,47 @@ QUESTION: {question}
 
 ANSWER:"""
 
+DOC_SUMMARY_PROMPT = """You are a study assistant. Read the document content below and write a clear, comprehensive ONE-PAGE SUMMARY.
+
+RULES:
+- Cover ALL key concepts, theories, and important details
+- Use clear headings and bullet points where appropriate
+- Keep it concise but thorough — aim for 300-500 words
+- Write in a way that helps students understand and remember the material
+- Do NOT invent information — only summarize what is in the document
+
+DOCUMENT CONTENT:
+{content}
+
+ONE-PAGE SUMMARY:"""
+
+DOC_TESTABLE_CONCEPTS_PROMPT = """You are a study assistant. Read the document content below and identify the FIVE MOST TESTABLE CONCEPTS — ideas that are most likely to appear on an exam or quiz.
+
+Return raw JSON only, no markdown fences:
+[
+  {{
+    "title": "Concept title",
+    "why_testable": "1-2 sentences explaining why this is likely to be tested",
+    "key_points": ["point 1", "point 2", "point 3"]
+  }}
+]
+
+DOCUMENT CONTENT:
+{content}
+
+FIVE MOST TESTABLE CONCEPTS:"""
+
+DOC_CHAT_PROMPT = """You are a study assistant helping a student understand a specific document.
+
+Use the document context below to answer the student's question. Stay grounded in the source material. If the context does not contain the answer, say so plainly.
+
+DOCUMENT CONTEXT:
+{context}
+
+QUESTION: {question}
+
+ANSWER:"""
+
 STOPWORDS = {
     "about", "after", "again", "against", "also", "because", "before", "being", "between", "could",
     "each", "from", "have", "into", "lecture", "notes", "only", "other", "should", "their", "there",
@@ -502,3 +543,72 @@ def handle_topic_quiz_submit(user_id: str, topic_id: str, question_count: int, s
         session_id=session_id,
     )
     return {"attempt": attempt}
+
+
+def _fallback_summary(text: str) -> str:
+    """Generate a simple extractive summary when AI is unavailable."""
+    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+    selected = sentences[: min(12, len(sentences))]
+    return " ".join(selected) if selected else "No content available for summary."
+
+
+def _fallback_testable_concepts(text: str) -> list[dict]:
+    """Generate keyword-based testable concepts when AI is unavailable."""
+    words = [w for w in _tokenize(text) if w not in STOPWORDS]
+    common = [w.title() for w, _ in Counter(words).most_common(15)]
+    concepts = []
+    for i in range(5):
+        start = i * 3
+        kw = common[start : start + 3] if start + 3 <= len(common) else common[start:] or [f"Concept {i+1}"]
+        concepts.append(
+            {
+                "title": " & ".join(kw),
+                "why_testable": f"These terms appear frequently in the document and are likely core exam topics.",
+                "key_points": kw,
+            }
+        )
+    return concepts
+
+
+def handle_doc_summary(user_id: str, doc_id: str, ai_client, vector_store) -> dict:
+    text = _get_doc_text(user_id, doc_id, vector_store)
+    if not text.strip():
+        return {"error": "No content found for this document. It may still be processing."}
+    content = text[:15000]
+    try:
+        summary = ai_client.invoke(DOC_SUMMARY_PROMPT.format(content=content), max_tokens=1024)
+    except Exception:
+        summary = _fallback_summary(text)
+    return {"doc_id": doc_id, "summary": summary}
+
+
+def handle_doc_testable_concepts(user_id: str, doc_id: str, ai_client, vector_store) -> dict:
+    text = _get_doc_text(user_id, doc_id, vector_store)
+    if not text.strip():
+        return {"error": "No content found for this document. It may still be processing."}
+    content = text[:15000]
+    try:
+        raw = ai_client.invoke(DOC_TESTABLE_CONCEPTS_PROMPT.format(content=content), max_tokens=1024)
+        concepts = _parse_json_array(raw)
+        if not concepts:
+            raise ValueError("empty")
+    except Exception:
+        concepts = _fallback_testable_concepts(text)
+    return {"doc_id": doc_id, "concepts": concepts[:5]}
+
+
+def handle_doc_chat(user_id: str, doc_id: str, message: str, ai_client, vector_store) -> dict:
+    chunks = vector_store.search(message, top_k=5, filter={"doc_id": doc_id})
+    citations = [
+        {"chunk": i + 1, "doc_id": chunk["doc_id"], "score": chunk["score"], "text": chunk["text"][:200]}
+        for i, chunk in enumerate(chunks)
+    ]
+    context = "\n\n".join(f"[chunk {i + 1}] {chunk['text']}" for i, chunk in enumerate(chunks))
+    if not context:
+        answer = "No relevant content found in this document yet."
+    else:
+        try:
+            answer = ai_client.invoke(DOC_CHAT_PROMPT.format(context=context, question=message), max_tokens=512)
+        except Exception:
+            answer = "AI is currently unavailable. Please try again later."
+    return {"answer": answer, "citations": citations}
