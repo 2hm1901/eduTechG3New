@@ -36,9 +36,6 @@ class S3Storage:
         resp = self.s3.list_objects_v2(Bucket=self.bucket, Prefix=prefix)
         return [obj["Key"] for obj in resp.get("Contents", [])]
 
-    def delete(self, key: str) -> None:
-        self.s3.delete_object(Bucket=self.bucket, Key=key)
-
 
 class LocalStorage:
     """Filesystem-based storage. Mirrors S3 API for drop-in replacement."""
@@ -68,8 +65,3 @@ class LocalStorage:
     def generate_presigned_url(self, key: str, content_type: str = "application/octet-stream") -> str:
         # In local mode, we return a relative URL to our app's direct upload endpoint
         return f"/api/bank/documents/upload/direct?key={key}"
-
-    def delete(self, key: str) -> None:
-        path = self.base / key
-        if path.exists():
-            path.unlink()

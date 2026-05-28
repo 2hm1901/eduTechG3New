@@ -27,21 +27,7 @@ class SQLiteUserStore:
         self._assert_supported_schema()
         schema_path = Path(__file__).resolve().parents[2] / "migrations" / "001_core_schema.sql"
         self.conn.executescript(schema_path.read_text(encoding="utf-8"))
-        self.conn.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS document_topics (
-                topic_id TEXT PRIMARY KEY,
-                user_id TEXT NOT NULL,
-                doc_id TEXT NOT NULL,
-                title TEXT NOT NULL,
-                summary TEXT NOT NULL,
-                position INTEGER NOT NULL,
-                created_at TEXT NOT NULL
-            );
-            CREATE INDEX IF NOT EXISTS idx_document_topics_user_doc_pos
-                ON document_topics(user_id, doc_id, position);
-            """
-        )
+        self._ensure_document_analysis_columns()
         self.conn.commit()
 
     def _table_columns(self, table: str) -> list[str]:
@@ -50,6 +36,18 @@ class SQLiteUserStore:
         except sqlite3.OperationalError:
             return []
         return [row[1] for row in rows]
+
+    def _ensure_document_analysis_columns(self) -> None:
+        columns = set(self._table_columns("documents"))
+        additions = {
+            "doc_summary": "ALTER TABLE documents ADD COLUMN doc_summary TEXT",
+            "summary_generated_at": "ALTER TABLE documents ADD COLUMN summary_generated_at TEXT",
+            "doc_topics_json": "ALTER TABLE documents ADD COLUMN doc_topics_json TEXT",
+            "topics_generated_at": "ALTER TABLE documents ADD COLUMN topics_generated_at TEXT",
+        }
+        for column, statement in additions.items():
+            if column not in columns:
+                self.conn.execute(statement)
 
     def _assert_supported_schema(self) -> None:
         user_columns = self._table_columns("users")
@@ -227,56 +225,43 @@ class SQLiteUserStore:
             "size": row["size_bytes"],
             "chars": row["chars_extracted"],
             "created_at": row["created_at"],
+            "doc_summary": row["doc_summary"],
+            "summary_generated_at": row["summary_generated_at"],
+            "doc_topics": json.loads(row["doc_topics_json"]) if row["doc_topics_json"] else [],
+            "topics_generated_at": row["topics_generated_at"],
         }
 
-    def delete_document(self, user_id: str, doc_id: str) -> None:
-        self.conn.execute("DELETE FROM document_topics WHERE user_id = ? AND doc_id = ?", (user_id, doc_id))
-        self.conn.execute("DELETE FROM folder_documents WHERE doc_id = ?", (doc_id,))
-        self.conn.execute("DELETE FROM documents WHERE user_id = ? AND doc_id = ?", (user_id, doc_id))
-        self.conn.commit()
+    def update_document_analysis(
+        self,
+        user_id: str,
+        doc_id: str,
+        *,
+        summary: str | None = None,
+        topics: list[dict] | None = None,
+    ) -> dict | None:
+        existing = self.get_document(user_id, doc_id)
+        if not existing:
+            return None
 
-    def replace_doc_topics(self, user_id: str, doc_id: str, topics: list[dict]) -> list[dict]:
+        fields = []
+        values = []
         now = _now()
-        self.conn.execute(
-            "DELETE FROM document_topics WHERE user_id = ? AND doc_id = ?",
-            (user_id, doc_id),
-        )
-        saved = []
-        for index, topic in enumerate(topics[:5], start=1):
-            topic_id = str(uuid.uuid4())
-            self.conn.execute(
-                "INSERT INTO document_topics (topic_id, user_id, doc_id, title, summary, position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (topic_id, user_id, doc_id, topic.get("title", f"Topic {index}"), topic.get("summary", ""), index, now),
-            )
-            saved.append(
-                {
-                    "topic_id": topic_id,
-                    "doc_id": doc_id,
-                    "title": topic.get("title", f"Topic {index}"),
-                    "summary": topic.get("summary", ""),
-                    "position": index,
-                    "created_at": now,
-                }
-            )
-        self.conn.commit()
-        return saved
+        if summary is not None:
+            fields.extend(["doc_summary = ?", "summary_generated_at = ?"])
+            values.extend([summary, now])
+        if topics is not None:
+            fields.extend(["doc_topics_json = ?", "topics_generated_at = ?"])
+            values.extend([json.dumps(topics), now])
+        if not fields:
+            return existing
 
-    def list_doc_topics(self, user_id: str, doc_id: str) -> list[dict]:
-        rows = self.conn.execute(
-            "SELECT topic_id, doc_id, title, summary, position, created_at FROM document_topics WHERE user_id = ? AND doc_id = ? ORDER BY position ASC",
-            (user_id, doc_id),
-        ).fetchall()
-        return [
-            {
-                "topic_id": row["topic_id"],
-                "doc_id": row["doc_id"],
-                "title": row["title"],
-                "summary": row["summary"],
-                "position": row["position"],
-                "created_at": row["created_at"],
-            }
-            for row in rows
-        ]
+        values.extend([doc_id, user_id])
+        self.conn.execute(
+            f"UPDATE documents SET {', '.join(fields)} WHERE doc_id = ? AND user_id = ?",
+            values,
+        )
+        self.conn.commit()
+        return self.get_document(user_id, doc_id)
 
     # ---- Folders ----
     def create_folder(self, user_id: str, name: str) -> dict:

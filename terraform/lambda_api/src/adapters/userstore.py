@@ -188,23 +188,55 @@ class DynamoDBUserStore:
         item = resp.get("Item")
         if not item:
             return None
-        return {**item, "doc_id": item.get("doc_id", doc_id)}
+        topics = item.get("doc_topics", [])
+        if isinstance(topics, str):
+            try:
+                topics = json.loads(topics)
+            except Exception:
+                topics = []
+        return {**item, "doc_id": item.get("doc_id", doc_id), "doc_topics": topics}
 
-    def delete_document(self, user_id: str, doc_id: str) -> None:
-        self.table.delete_item(Key={"user_id": user_id, "sk": f"DOC#{doc_id}"})
-        related_prefixes = [
-            f"FOLDOC#",
-            f"DOCTOPIC#{doc_id}#",
-        ]
-        for prefix in related_prefixes:
-            resp = self.table.query(
-                KeyConditionExpression="user_id = :u AND begins_with(sk, :p)",
-                ExpressionAttributeValues={":u": user_id, ":p": prefix},
-            )
-            for item in resp.get("Items", []):
-                if prefix == "FOLDOC#" and item.get("doc_id") != doc_id:
-                    continue
-                self.table.delete_item(Key={"user_id": user_id, "sk": item["sk"]})
+    def update_document_analysis(
+        self,
+        user_id: str,
+        doc_id: str,
+        *,
+        summary: str | None = None,
+        topics: list[dict] | None = None,
+    ) -> dict | None:
+        resp = self.table.get_item(Key={"user_id": user_id, "sk": f"DOC#{doc_id}"})
+        item = resp.get("Item")
+        if not item:
+            return None
+
+        updates = []
+        names = {}
+        values = {}
+        now = _now()
+
+        if summary is not None:
+            updates.append("#doc_summary = :summary")
+            names["#doc_summary"] = "doc_summary"
+            values[":summary"] = summary
+            updates.append("summary_generated_at = :summary_generated_at")
+            values[":summary_generated_at"] = now
+
+        if topics is not None:
+            updates.append("doc_topics = :topics")
+            values[":topics"] = json.dumps(topics)
+            updates.append("topics_generated_at = :topics_generated_at")
+            values[":topics_generated_at"] = now
+
+        if not updates:
+            return self.get_document(user_id, doc_id)
+
+        self.table.update_item(
+            Key={"user_id": user_id, "sk": f"DOC#{doc_id}"},
+            UpdateExpression="SET " + ", ".join(updates),
+            ExpressionAttributeNames=names or None,
+            ExpressionAttributeValues=values,
+        )
+        return self.get_document(user_id, doc_id)
 
     def rename_folder(self, user_id: str, folder_id: str, name: str) -> dict:
         sk = f"FOLDER#{folder_id}"
@@ -288,60 +320,6 @@ class DynamoDBUserStore:
             self.table.put_item(Item=item)
             result.append({"topic_id": topic_id, "folder_id": folder_id, "title": item["title"], "summary": item["summary"], "source_doc_ids": t.get("source_doc_ids", [])})
         return result
-
-    def replace_doc_topics(self, user_id: str, doc_id: str, topics: list[dict]) -> list[dict]:
-        old = self.table.query(
-            KeyConditionExpression="user_id = :u AND begins_with(sk, :p)",
-            ExpressionAttributeValues={":u": user_id, ":p": f"DOCTOPIC#{doc_id}#"},
-        )
-        for item in old.get("Items", []):
-            self.table.delete_item(Key={"user_id": user_id, "sk": item["sk"]})
-        result = []
-        now = _now()
-        for index, topic in enumerate(topics[:5], start=1):
-            topic_id = secrets.token_hex(4)
-            sk = f"DOCTOPIC#{doc_id}#{index:02d}#{topic_id}"
-            item = {
-                "user_id": user_id,
-                "sk": sk,
-                "topic_id": topic_id,
-                "doc_id": doc_id,
-                "title": topic.get("title", f"Topic {index}"),
-                "summary": topic.get("summary", ""),
-                "position": index,
-                "created_at": now,
-            }
-            self.table.put_item(Item=item)
-            result.append(
-                {
-                    "topic_id": topic_id,
-                    "doc_id": doc_id,
-                    "title": item["title"],
-                    "summary": item["summary"],
-                    "position": index,
-                    "created_at": now,
-                }
-            )
-        return result
-
-    def list_doc_topics(self, user_id: str, doc_id: str) -> list[dict]:
-        resp = self.table.query(
-            KeyConditionExpression="user_id = :u AND begins_with(sk, :p)",
-            ExpressionAttributeValues={":u": user_id, ":p": f"DOCTOPIC#{doc_id}#"},
-        )
-        items = resp.get("Items", [])
-        items.sort(key=lambda x: int(x.get("position", 0)))
-        return [
-            {
-                "topic_id": item.get("topic_id", ""),
-                "doc_id": item.get("doc_id", doc_id),
-                "title": item.get("title", ""),
-                "summary": item.get("summary", ""),
-                "position": int(item.get("position", 0)),
-                "created_at": item.get("created_at", ""),
-            }
-            for item in items
-        ]
 
     def list_folder_topics(self, user_id: str, folder_id: str) -> list[dict]:
         resp = self.table.query(

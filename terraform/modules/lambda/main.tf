@@ -26,23 +26,23 @@ resource "aws_iam_role_policy" "upload_handler" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = ["s3:PutObject"]
+        Effect   = "Allow"
+        Action   = ["s3:PutObject"]
         Resource = "${var.pdf_bucket_arn}/*"
       },
       {
-        Effect = "Allow"
-        Action = ["kms:GenerateDataKey", "kms:Encrypt", "kms:Decrypt"]
+        Effect   = "Allow"
+        Action   = ["kms:GenerateDataKey", "kms:Encrypt", "kms:Decrypt"]
         Resource = var.kms_key_arn
       },
       {
-        Effect = "Allow"
-        Action = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
         Resource = "arn:aws:logs:${var.region}:*:*"
       },
       {
-        Effect = "Allow"
-        Action = ["ec2:CreateNetworkInterface", "ec2:DescribeNetworkInterfaces", "ec2:DeleteNetworkInterface"]
+        Effect   = "Allow"
+        Action   = ["ec2:CreateNetworkInterface", "ec2:DescribeNetworkInterfaces", "ec2:DeleteNetworkInterface"]
         Resource = "*"
       }
     ]
@@ -61,38 +61,38 @@ resource "aws_iam_role_policy" "text_extraction" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = ["s3:GetObject"]
+        Effect   = "Allow"
+        Action   = ["s3:GetObject"]
         Resource = "${var.pdf_bucket_arn}/*"
       },
       {
-        Effect = "Allow"
-        Action = ["s3:ListBucket"]
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
         Resource = var.pdf_bucket_arn
       },
       {
-        Effect = "Allow"
-        Action = ["s3:PutObject"]
+        Effect   = "Allow"
+        Action   = ["s3:PutObject"]
         Resource = "${var.source_bucket_arn}/*"
       },
       {
-        Effect = "Allow"
-        Action = ["bedrock:StartIngestionJob", "bedrock:GetIngestionJob"]
+        Effect   = "Allow"
+        Action   = ["bedrock:StartIngestionJob", "bedrock:GetIngestionJob"]
         Resource = "arn:aws:bedrock:${var.region}:*:knowledge-base/*"
       },
       {
-        Effect = "Allow"
-        Action = ["kms:Decrypt", "kms:GenerateDataKey", "kms:Encrypt"]
+        Effect   = "Allow"
+        Action   = ["kms:Decrypt", "kms:GenerateDataKey", "kms:Encrypt"]
         Resource = var.kms_key_arn
       },
       {
-        Effect = "Allow"
-        Action = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
         Resource = "arn:aws:logs:${var.region}:*:*"
       },
       {
-        Effect = "Allow"
-        Action = ["ec2:CreateNetworkInterface", "ec2:DescribeNetworkInterfaces", "ec2:DeleteNetworkInterface"]
+        Effect   = "Allow"
+        Action   = ["ec2:CreateNetworkInterface", "ec2:DescribeNetworkInterfaces", "ec2:DeleteNetworkInterface"]
         Resource = "*"
       }
     ]
@@ -111,28 +111,32 @@ resource "aws_iam_role_policy" "chat" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = ["bedrock:RetrieveAndGenerate", "bedrock:Retrieve"]
+        Effect   = "Allow"
+        Action   = ["bedrock:RetrieveAndGenerate", "bedrock:Retrieve"]
         Resource = "arn:aws:bedrock:${var.region}:*:knowledge-base/*"
       },
       {
         Effect = "Allow"
         Action = ["bedrock:InvokeModel"]
-        Resource = "arn:aws:bedrock:${var.region}::foundation-model/anthropic.claude-*"
+        Resource = [
+          "arn:aws:bedrock:::foundation-model/*",
+          "arn:aws:bedrock:${var.region}::foundation-model/*",
+          "arn:aws:bedrock:${var.region}:*:inference-profile/*"
+        ]
       },
       {
-        Effect = "Allow"
-        Action = ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:Query"]
+        Effect   = "Allow"
+        Action   = ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:Query"]
         Resource = "arn:aws:dynamodb:${var.region}:*:table/${var.dynamodb_table_name}"
       },
       {
-        Effect = "Allow"
-        Action = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
         Resource = "arn:aws:logs:${var.region}:*:*"
       },
       {
-        Effect = "Allow"
-        Action = ["ec2:CreateNetworkInterface", "ec2:DescribeNetworkInterfaces", "ec2:DeleteNetworkInterface"]
+        Effect   = "Allow"
+        Action   = ["ec2:CreateNetworkInterface", "ec2:DescribeNetworkInterfaces", "ec2:DeleteNetworkInterface"]
         Resource = "*"
       }
     ]
@@ -153,21 +157,25 @@ resource "aws_iam_role_policy" "summarize_quiz" {
       {
         Effect = "Allow"
         Action = ["bedrock:InvokeModel"]
-        Resource = "arn:aws:bedrock:${var.region}::foundation-model/anthropic.claude-*"
+        Resource = [
+          "arn:aws:bedrock:::foundation-model/*",
+          "arn:aws:bedrock:${var.region}::foundation-model/*",
+          "arn:aws:bedrock:${var.region}:*:inference-profile/*"
+        ]
       },
       {
-        Effect = "Allow"
-        Action = ["dynamodb:PutItem", "dynamodb:GetItem"]
+        Effect   = "Allow"
+        Action   = ["dynamodb:PutItem", "dynamodb:GetItem"]
         Resource = "arn:aws:dynamodb:${var.region}:*:table/${var.dynamodb_table_name}"
       },
       {
-        Effect = "Allow"
-        Action = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
         Resource = "arn:aws:logs:${var.region}:*:*"
       },
       {
-        Effect = "Allow"
-        Action = ["ec2:CreateNetworkInterface", "ec2:DescribeNetworkInterfaces", "ec2:DeleteNetworkInterface"]
+        Effect   = "Allow"
+        Action   = ["ec2:CreateNetworkInterface", "ec2:DescribeNetworkInterfaces", "ec2:DeleteNetworkInterface"]
         Resource = "*"
       }
     ]
@@ -186,18 +194,18 @@ resource "aws_iam_role_policy" "dashboard" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = ["dynamodb:GetItem", "dynamodb:Query"]
+        Effect   = "Allow"
+        Action   = ["dynamodb:GetItem", "dynamodb:Query"]
         Resource = "arn:aws:dynamodb:${var.region}:*:table/${var.dynamodb_table_name}"
       },
       {
-        Effect = "Allow"
-        Action = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
         Resource = "arn:aws:logs:${var.region}:*:*"
       },
       {
-        Effect = "Allow"
-        Action = ["ec2:CreateNetworkInterface", "ec2:DescribeNetworkInterfaces", "ec2:DeleteNetworkInterface"]
+        Effect   = "Allow"
+        Action   = ["ec2:CreateNetworkInterface", "ec2:DescribeNetworkInterfaces", "ec2:DeleteNetworkInterface"]
         Resource = "*"
       }
     ]
@@ -216,13 +224,13 @@ resource "aws_iam_role_policy" "api_backend" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]
+        Effect   = "Allow"
+        Action   = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]
         Resource = "${var.pdf_bucket_arn}/*"
       },
       {
-        Effect = "Allow"
-        Action = ["kms:GenerateDataKey", "kms:Encrypt", "kms:Decrypt"]
+        Effect   = "Allow"
+        Action   = ["kms:GenerateDataKey", "kms:Encrypt", "kms:Decrypt"]
         Resource = var.kms_key_arn
       },
       {
@@ -241,17 +249,19 @@ resource "aws_iam_role_policy" "api_backend" {
         Action = ["bedrock:Retrieve", "bedrock:RetrieveAndGenerate", "bedrock:InvokeModel"]
         Resource = [
           "arn:aws:bedrock:${var.region}:*:knowledge-base/*",
-          "arn:aws:bedrock:${var.region}::foundation-model/*"
+          "arn:aws:bedrock:::foundation-model/*",
+          "arn:aws:bedrock:${var.region}::foundation-model/*",
+          "arn:aws:bedrock:${var.region}:*:inference-profile/*"
         ]
       },
       {
-        Effect = "Allow"
-        Action = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
         Resource = "arn:aws:logs:${var.region}:*:*"
       },
       {
-        Effect = "Allow"
-        Action = ["ec2:CreateNetworkInterface", "ec2:DescribeNetworkInterfaces", "ec2:DeleteNetworkInterface"]
+        Effect   = "Allow"
+        Action   = ["ec2:CreateNetworkInterface", "ec2:DescribeNetworkInterfaces", "ec2:DeleteNetworkInterface"]
         Resource = "*"
       }
     ]
@@ -259,15 +269,15 @@ resource "aws_iam_role_policy" "api_backend" {
 }
 
 resource "aws_lambda_function" "upload_handler" {
-  function_name = "ai-study-buddy-upload-handler"
-  handler       = "upload_handler.lambda_handler"
-  runtime       = local.runtime
-  architectures = local.architectures
-  role          = aws_iam_role.upload_handler.arn
-  filename      = var.upload_handler_zip
+  function_name    = "ai-study-buddy-upload-handler"
+  handler          = "upload_handler.lambda_handler"
+  runtime          = local.runtime
+  architectures    = local.architectures
+  role             = aws_iam_role.upload_handler.arn
+  filename         = var.upload_handler_zip
   source_code_hash = filebase64sha256(var.upload_handler_zip)
-  timeout       = 60
-  memory_size   = 512
+  timeout          = 60
+  memory_size      = 512
 
   vpc_config {
     subnet_ids         = [var.subnet_id]
@@ -283,16 +293,16 @@ resource "aws_lambda_function" "upload_handler" {
 }
 
 resource "aws_lambda_function" "text_extraction" {
-  function_name = "ai-study-buddy-text-extraction"
-  handler       = "text_extraction.lambda_handler"
-  runtime       = local.runtime
-  architectures = local.architectures
-  role          = aws_iam_role.text_extraction.arn
-  filename      = var.text_extraction_zip
+  function_name    = "ai-study-buddy-text-extraction"
+  handler          = "text_extraction.lambda_handler"
+  runtime          = local.runtime
+  architectures    = local.architectures
+  role             = aws_iam_role.text_extraction.arn
+  filename         = var.text_extraction_zip
   source_code_hash = filebase64sha256(var.text_extraction_zip)
-  timeout       = 300
-  memory_size   = 1024
-  layers        = var.pypdf_layer_arn == null ? [] : [var.pypdf_layer_arn]
+  timeout          = 300
+  memory_size      = 1024
+  layers           = var.pypdf_layer_arn == null ? [] : [var.pypdf_layer_arn]
 
   vpc_config {
     subnet_ids         = [var.subnet_id]
@@ -310,15 +320,15 @@ resource "aws_lambda_function" "text_extraction" {
 }
 
 resource "aws_lambda_function" "chat" {
-  function_name = "ai-study-buddy-chat"
-  handler       = "chat.lambda_handler"
-  runtime       = local.runtime
-  architectures = local.architectures
-  role          = aws_iam_role.chat.arn
-  filename      = var.chat_zip
+  function_name    = "ai-study-buddy-chat"
+  handler          = "chat.lambda_handler"
+  runtime          = local.runtime
+  architectures    = local.architectures
+  role             = aws_iam_role.chat.arn
+  filename         = var.chat_zip
   source_code_hash = filebase64sha256(var.chat_zip)
-  timeout       = 30
-  memory_size   = 512
+  timeout          = 30
+  memory_size      = 512
 
   vpc_config {
     subnet_ids         = [var.subnet_id]
@@ -336,15 +346,15 @@ resource "aws_lambda_function" "chat" {
 }
 
 resource "aws_lambda_function" "summarize_quiz" {
-  function_name = "ai-study-buddy-summarize-quiz"
-  handler       = "summarize_quiz.lambda_handler"
-  runtime       = local.runtime
-  architectures = local.architectures
-  role          = aws_iam_role.summarize_quiz.arn
-  filename      = var.summarize_quiz_zip
+  function_name    = "ai-study-buddy-summarize-quiz"
+  handler          = "summarize_quiz.lambda_handler"
+  runtime          = local.runtime
+  architectures    = local.architectures
+  role             = aws_iam_role.summarize_quiz.arn
+  filename         = var.summarize_quiz_zip
   source_code_hash = filebase64sha256(var.summarize_quiz_zip)
-  timeout       = 60
-  memory_size   = 512
+  timeout          = 60
+  memory_size      = 512
 
   vpc_config {
     subnet_ids         = [var.subnet_id]
@@ -361,15 +371,15 @@ resource "aws_lambda_function" "summarize_quiz" {
 }
 
 resource "aws_lambda_function" "dashboard" {
-  function_name = "ai-study-buddy-dashboard"
-  handler       = "dashboard.lambda_handler"
-  runtime       = local.runtime
-  architectures = local.architectures
-  role          = aws_iam_role.dashboard.arn
-  filename      = var.dashboard_zip
+  function_name    = "ai-study-buddy-dashboard"
+  handler          = "dashboard.lambda_handler"
+  runtime          = local.runtime
+  architectures    = local.architectures
+  role             = aws_iam_role.dashboard.arn
+  filename         = var.dashboard_zip
   source_code_hash = filebase64sha256(var.dashboard_zip)
-  timeout       = 15
-  memory_size   = 256
+  timeout          = 15
+  memory_size      = 256
 
   vpc_config {
     subnet_ids         = [var.subnet_id]
@@ -385,15 +395,15 @@ resource "aws_lambda_function" "dashboard" {
 }
 
 resource "aws_lambda_function" "api_backend" {
-  function_name = "ai-study-buddy-api-backend"
-  handler       = "src.app.handler"
-  runtime       = local.runtime
-  architectures = local.architectures
-  role          = aws_iam_role.api_backend.arn
-  filename      = var.api_backend_zip
+  function_name    = "ai-study-buddy-api-backend"
+  handler          = "src.app.handler"
+  runtime          = local.runtime
+  architectures    = local.architectures
+  role             = aws_iam_role.api_backend.arn
+  filename         = var.api_backend_zip
   source_code_hash = filebase64sha256(var.api_backend_zip)
-  timeout       = 30
-  memory_size   = 512
+  timeout          = 30
+  memory_size      = 512
 
   vpc_config {
     subnet_ids         = [var.subnet_id]
@@ -402,17 +412,17 @@ resource "aws_lambda_function" "api_backend" {
 
   environment {
     variables = {
-      AI_BACKEND                 = "bedrock"
-      AI_MODEL_ID                = var.bedrock_model_id
-      APP_REGION                 = var.region
-      STORAGE_BACKEND            = "s3"
-      STORAGE_BUCKET             = var.pdf_bucket_name
-      USERSTORE_BACKEND          = "dynamodb"
-      USERSTORE_TABLE            = var.dynamodb_table_name
-      VECTOR_BACKEND             = "bedrock_kb"
-      SERVE_FRONTEND             = "false"
-      CORS_ORIGINS               = var.cors_origin
-      VECTOR_BEDROCK_KB_ID       = var.bedrock_kb_id
+      AI_BACKEND                    = "bedrock"
+      AI_MODEL_ID                   = var.bedrock_model_id
+      APP_REGION                    = var.region
+      STORAGE_BACKEND               = "s3"
+      STORAGE_BUCKET                = var.pdf_bucket_name
+      USERSTORE_BACKEND             = "dynamodb"
+      USERSTORE_TABLE               = var.dynamodb_table_name
+      VECTOR_BACKEND                = "bedrock_kb"
+      SERVE_FRONTEND                = "false"
+      CORS_ORIGINS                  = var.cors_origin
+      VECTOR_BEDROCK_KB_ID          = var.bedrock_kb_id
       VECTOR_BEDROCK_DATA_SOURCE_ID = var.bedrock_datasource_id
     }
   }

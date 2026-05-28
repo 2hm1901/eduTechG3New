@@ -360,7 +360,7 @@ Once your AWS resources are provisioned, edit `.env`:
 ```diff
 - AI_BACKEND=local
 + AI_BACKEND=bedrock
-+ AI_MODEL_ID=anthropic.claude-3-5-haiku-20241022-v1:0
++ AI_MODEL_ID=global.amazon.nova-2-lite-v1:0
 
 - STORAGE_BACKEND=local
 + STORAGE_BACKEND=s3

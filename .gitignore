@@ -36,6 +36,7 @@ crash.log
 
 # Lambda build/package artifacts
 terraform/lambda_api/api_backend.zip
+terraform/lambda_api/*.zip
 terraform/lambda_api/bin/
 terraform/lambda_api/*.dist-info/
 terraform/lambda_api/annotated_doc/

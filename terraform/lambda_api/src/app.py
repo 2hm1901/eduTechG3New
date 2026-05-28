@@ -106,10 +106,6 @@ class FinalizeRequest(BaseModel):
     size: int
 
 
-class DocChatRequest(BaseModel):
-    message: str
-
-
 @app.get("/health")
 def health() -> dict:
     return {
@@ -126,19 +122,6 @@ def health() -> dict:
 @app.get("/api/bank/documents")
 def api_list_bank_documents(request: Request, x_user_id: str | None = Header(default=None)) -> dict:
     return handlers.handle_list_docs(_resolve_user_id(request, x_user_id), userstore)
-
-
-@app.delete("/api/bank/documents/{doc_id}")
-def api_delete_bank_document(doc_id: str, request: Request, x_user_id: str | None = Header(default=None)) -> dict:
-    return _require_success(
-        handlers.handle_delete_doc(
-            user_id=_resolve_user_id(request, x_user_id),
-            doc_id=doc_id,
-            storage=storage,
-            userstore=userstore,
-        ),
-        status_code=404,
-    )
 
 
 @app.post("/api/bank/documents/upload")
@@ -179,7 +162,6 @@ def api_finalize_upload(req: FinalizeRequest, request: Request, x_user_id: str |
         storage=storage,
         userstore=userstore,
         vector_store=vector_store,
-        ai_client=ai_client,
     )
 
 
@@ -306,6 +288,10 @@ def api_submit_topic_quiz(topic_id: str, req: TopicQuizSubmitRequest, request: R
     )
 
 
+class DocChatRequest(BaseModel):
+    message: str
+
+
 @app.post("/api/documents/{doc_id}/summary")
 def api_doc_summary(doc_id: str, request: Request, x_user_id: str | None = Header(default=None)) -> dict:
     return _require_success(
@@ -314,6 +300,7 @@ def api_doc_summary(doc_id: str, request: Request, x_user_id: str | None = Heade
             doc_id=doc_id,
             ai_client=ai_client,
             vector_store=vector_store,
+            userstore=userstore,
         ),
         status_code=404,
     )
@@ -332,6 +319,20 @@ def api_doc_testable_concepts(doc_id: str, request: Request, x_user_id: str | No
     )
 
 
+@app.get("/api/documents/{doc_id}/topics")
+def api_doc_topics(doc_id: str, request: Request, x_user_id: str | None = Header(default=None)) -> dict:
+    return _require_success(
+        handlers.handle_doc_topics(
+            user_id=_resolve_user_id(request, x_user_id),
+            doc_id=doc_id,
+            ai_client=ai_client,
+            vector_store=vector_store,
+            userstore=userstore,
+        ),
+        status_code=404,
+    )
+
+
 @app.post("/api/documents/{doc_id}/chat")
 def api_doc_chat(doc_id: str, req: DocChatRequest, request: Request, x_user_id: str | None = Header(default=None)) -> dict:
     if not req.message.strip():
@@ -340,17 +341,6 @@ def api_doc_chat(doc_id: str, req: DocChatRequest, request: Request, x_user_id: 
         user_id=_resolve_user_id(request, x_user_id),
         doc_id=doc_id,
         message=req.message.strip(),
-        ai_client=ai_client,
-        vector_store=vector_store,
-    )
-
-
-@app.get("/api/documents/{doc_id}/topics")
-def api_doc_topics(doc_id: str, request: Request, x_user_id: str | None = Header(default=None)) -> dict:
-    return handlers.handle_list_doc_topics(
-        user_id=_resolve_user_id(request, x_user_id),
-        doc_id=doc_id,
-        userstore=userstore,
         ai_client=ai_client,
         vector_store=vector_store,
     )
